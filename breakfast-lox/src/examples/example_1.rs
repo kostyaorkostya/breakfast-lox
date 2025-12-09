@@ -1,3 +1,4 @@
+use breakfast_lox::ast::*;
 use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};

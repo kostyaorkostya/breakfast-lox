@@ -1,0 +1,22 @@
+use crate::ast;
+
+grammar;
+
+pub BinOp : ast::BinOp = {
+    "==" => ast::BinOp::Eq,
+    "!=" => ast::BinOp::Ne,
+    "<" => ast::BinOp::Lt,
+    "<=" => ast::BinOp::Le,
+    ">" => ast::BinOp::Gt,
+    ">=" => ast::BinOp::Ge,
+    "+" => ast::BinOp::Add,
+    "-" => ast::BinOp::Sub,
+    "*" => ast::BinOp::Mul,
+    "/" => ast::BinOp::Div,
+}
+
+pub UnaryOp : ast::UnaryOp = {
+    "-" => ast::UnaryOp::Neg,
+    "!" => ast::UnaryOp::Not,
+}
+

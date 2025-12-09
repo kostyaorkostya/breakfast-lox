@@ -3,10 +3,14 @@ name = "breakfast-lox"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "example-1"
+path = "src/examples/example_1.rs"
+
 [dependencies]
 anyhow = "1.0.100"
 clap = { version = "4.5.49", features = ["derive"] }
-lalrpop-util = "0.22.2"
+lalrpop-util = { version = "0.22.2",  features = [ "lexer" ] }
 thiserror = "2.0.17"
 
 [build-dependencies]
