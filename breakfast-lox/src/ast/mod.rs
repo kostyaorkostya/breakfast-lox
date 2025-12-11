@@ -1,12 +1,19 @@
-pub struct BoolLit(bool);
-
 pub struct NilLit;
+
+pub struct BoolLit(bool);
 
 pub struct NumLit(f64);
 
-pub struct StringLit(String);
+pub struct StrLit(String);
 
-pub enum UnaryOp {
+pub enum Lit {
+    Nil(NilLit),
+    Bool(BoolLit),
+    Num(NumLit),
+    Str(StrLit),
+}
+
+pub enum UnOp {
     /// Negation (`-`)
     Neg,
     /// Logical not (`!`)
@@ -50,7 +57,30 @@ pub enum MulOp {
     Div,
 }
 
-impl StringLit {
+pub enum BinOp {
+    Rel(RelOp),
+    Add(AddOp),
+    Mul(MulOp),
+}
+
+pub struct UnExpr {
+    pub op: UnOp,
+    pub expr: Box<Expr>,
+}
+
+pub struct BinExpr {
+    pub op: BinOp,
+    pub left: Box<Expr>,
+    pub righ: Box<Expr>,
+}
+
+pub enum Expr {
+    Lit(Lit),
+    Un(UnExpr),
+    Bin(BinExpr),
+}
+
+impl StrLit {
     /// Assumes ASCII
     pub fn from_raw(s: &str) -> Self {
         let s = &s[1..s.len() - 1]; // strip quotes
