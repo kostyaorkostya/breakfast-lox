@@ -1,10 +1,10 @@
 pub struct NilLit;
 
-pub struct BoolLit(bool);
+pub struct BoolLit(pub bool);
 
-pub struct NumLit(f64);
+pub struct NumLit(pub f64);
 
-pub struct StrLit(String);
+pub struct StrLit(pub String);
 
 pub enum Lit {
     Nil(NilLit),
@@ -65,13 +65,13 @@ pub enum BinOp {
 
 pub struct UnExpr {
     pub op: UnOp,
-    pub expr: Box<Expr>,
+    pub e: Box<Expr>,
 }
 
 pub struct BinExpr {
     pub op: BinOp,
-    pub left: Box<Expr>,
-    pub righ: Box<Expr>,
+    pub l: Box<Expr>,
+    pub r: Box<Expr>,
 }
 
 pub enum Expr {

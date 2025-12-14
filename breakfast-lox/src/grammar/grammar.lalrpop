@@ -1,14 +1,15 @@
 use crate::ast;
+use std::str::FromStr;
 
 grammar;
+
+pub NilLit : ast::NilLit = {
+    "nil" => ast::NilLit,
+}
 
 pub BoolLit : ast::BoolLit = {
     "true" => ast::BoolLit(true),
     "false" => ast::BoolLit(false),
-}
-
-pub NilLit : ast::NilLit = {
-    "nil" => ast::NilLit,
 }
 
 pub NumLit : ast::NumLit = {
@@ -20,29 +21,78 @@ pub NumLit : ast::NumLit = {
     r"\.[0-9]+([eE][+-]?[0-9]+)?" => ast::NumLit(f64::from_str(<>).unwrap()),
 
     // Hexadecimal floating constants
-    r"0[xX][0-9a-fA-F]+\.?[0-9a-fA-F]*[pP][+-]?[0-9]+" => ast::NumLit(hexf_parse::parse_f64(<>, false).unwrap()),
-    r"0[xX]\.[0-9a-fA-F]+[pP][+-]?[0-9]+" => ast::NumLit(hexf_parse::parse_f64(<>, false).unwrap()),
+    r"0[xX][0-9a-fA-F]+\.?[0-9a-fA-F]*[pP][+-]?[0-9]+" => ast::NumLit(hexf_parse::parse_hexf64(<>, false).unwrap()),
+    r"0[xX]\.[0-9a-fA-F]+[pP][+-]?[0-9]+" => ast::NumLit(hexf_parse::parse_hexf64(<>, false).unwrap()),
 }
 
-pub StringLit : ast::StringLit = {
-    r#""[ -!#-\[\]-~\\]*""# => ast::StringLit::from_raw(<>),
+pub StrLit : ast::StrLit = {
+    r#""[ -!#-\[\]-~\\]*""# => ast::StrLit::from_raw(<>),
 }
 
-pub BinOp : ast::BinOp = {
-    "==" => ast::BinOp::Eq,
-    "!=" => ast::BinOp::Ne,
-    "<" => ast::BinOp::Lt,
-    "<=" => ast::BinOp::Le,
-    ">" => ast::BinOp::Gt,
-    ">=" => ast::BinOp::Ge,
-    "+" => ast::BinOp::Add,
-    "-" => ast::BinOp::Sub,
-    "*" => ast::BinOp::Mul,
-    "/" => ast::BinOp::Div,
+pub Lit : ast::Lit = {
+    NilLit => ast::Lit::Nil(<>),
+    BoolLit => ast::Lit::Bool(<>),
+    NumLit => ast::Lit::Num(<>),
+    StrLit => ast::Lit::Str(<>),
 }
 
-pub UnaryOp : ast::UnaryOp = {
-    "-" => ast::UnaryOp::Neg,
-    "!" => ast::UnaryOp::Not,
+pub UnOp : ast::UnOp = {
+    "-" => ast::UnOp::Neg,
+    "!" => ast::UnOp::Not,
 }
 
+pub EqOp : ast::EqOp = {
+    "==" => ast::EqOp::Eq,
+    "!=" => ast::EqOp::Ne,
+}
+
+pub CmpOp : ast::CmpOp = {
+    "<" => ast::CmpOp::Lt,
+    "<=" => ast::CmpOp::Le,
+    ">" => ast::CmpOp::Gt,
+    ">=" => ast::CmpOp::Ge,
+}
+
+pub AddOp : ast::AddOp = {
+    "+" => ast::AddOp::Add,
+    "-" => ast::AddOp::Sub,
+}
+
+pub MulOp : ast::MulOp = {
+    "*" => ast::MulOp::Mul,
+    "/" => ast::MulOp::Div,
+}
+
+pub Expr : ast::Expr = {
+    EqExpr => <>
+}
+
+pub EqExpr : ast::Expr = {
+    <l:EqExpr> <op:EqOp> <r:CmpExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Rel(ast::RelOp::Eq(op)), l : Box::new(l), r : Box::new(r) }),
+    CmpExpr 
+}
+
+pub CmpExpr : ast::Expr = {
+    <l:TermExpr> <op:CmpOp> <r:CmpExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Rel(ast::RelOp::Cmp(op)), l : Box::new(l), r : Box::new(r) }),
+    TermExpr 
+}
+
+pub TermExpr : ast::Expr = {
+    <l:FactorExpr> <op:AddOp> <r:TermExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Add(op), l : Box::new(l), r : Box::new(r) }),
+    FactorExpr 
+}
+
+pub FactorExpr : ast::Expr = {
+    <l:UnExpr> <op:MulOp> <r:FactorExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Mul(op), l : Box::new(l), r : Box::new(r) }),
+    UnExpr
+}
+
+pub UnExpr : ast::Expr = {
+    <op:UnOp> <e:UnExpr> => ast::Expr::Un(ast::UnExpr { op, e : Box::new(e) }),
+    PrimExpr,
+}
+
+pub PrimExpr : ast::Expr = {
+    Lit => ast::Expr::Lit(<>),
+    "(" <Expr> ")" => <>
+}
