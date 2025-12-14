@@ -55,7 +55,11 @@ mod nil_literal {
 
 mod num_literal {
     use super::super::grammar::ExprParser;
+    use super::super::parse_error;
+    use super::super::parse_error::NumLitParseError;
     use expect_test::expect;
+    use lalrpop_util::ParseError;
+
     #[test]
     fn test_0_one() -> anyhow::Result<()> {
         let actual = ExprParser::new().parse("0")?;
@@ -102,5 +106,16 @@ mod num_literal {
         "#]]
         .assert_debug_eq(&actual);
         Ok(())
+    }
+
+    #[test]
+    fn test_integer_greater_than_representable_by_f64() {
+        let err = ExprParser::new().parse("9007199254740993").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::User {
+                error: parse_error::ParseError::NumLit(NumLitParseError::NumberIsNotFinite { .. })
+            }
+        ));
     }
 }
