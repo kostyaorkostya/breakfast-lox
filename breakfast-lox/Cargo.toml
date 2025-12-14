@@ -16,3 +16,6 @@ hexf-parse = "0.2.1"
 
 [build-dependencies]
 lalrpop = "0.22.2"
+
+[dev-dependencies]
+expect-test = "1.5.1"

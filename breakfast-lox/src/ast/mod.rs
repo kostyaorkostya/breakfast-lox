@@ -1,11 +1,16 @@
+#[derive(Debug)]
 pub struct NilLit;
 
+#[derive(Debug)]
 pub struct BoolLit(pub bool);
 
+#[derive(Debug)]
 pub struct NumLit(pub f64);
 
+#[derive(Debug)]
 pub struct StrLit(pub String);
 
+#[derive(Debug)]
 pub enum Lit {
     Nil(NilLit),
     Bool(BoolLit),
@@ -13,6 +18,7 @@ pub enum Lit {
     Str(StrLit),
 }
 
+#[derive(Debug)]
 pub enum UnOp {
     /// Negation (`-`)
     Neg,
@@ -20,6 +26,7 @@ pub enum UnOp {
     Not,
 }
 
+#[derive(Debug)]
 pub enum EqOp {
     /// Equality (`==`)
     Eq,
@@ -27,6 +34,7 @@ pub enum EqOp {
     Ne,
 }
 
+#[derive(Debug)]
 pub enum CmpOp {
     /// Less than (`<`)
     Lt,
@@ -38,11 +46,13 @@ pub enum CmpOp {
     Ge,
 }
 
+#[derive(Debug)]
 pub enum RelOp {
     Eq(EqOp),
     Cmp(CmpOp),
 }
 
+#[derive(Debug)]
 pub enum AddOp {
     /// Addition (`+`)
     Add,
@@ -50,6 +60,7 @@ pub enum AddOp {
     Sub,
 }
 
+#[derive(Debug)]
 pub enum MulOp {
     /// Multiplication (`*`)
     Mul,
@@ -57,23 +68,27 @@ pub enum MulOp {
     Div,
 }
 
+#[derive(Debug)]
 pub enum BinOp {
     Rel(RelOp),
     Add(AddOp),
     Mul(MulOp),
 }
 
+#[derive(Debug)]
 pub struct UnExpr {
     pub op: UnOp,
     pub e: Box<Expr>,
 }
 
+#[derive(Debug)]
 pub struct BinExpr {
     pub op: BinOp,
     pub l: Box<Expr>,
     pub r: Box<Expr>,
 }
 
+#[derive(Debug)]
 pub enum Expr {
     Lit(Lit),
     Un(UnExpr),
