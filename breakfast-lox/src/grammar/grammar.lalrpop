@@ -13,18 +13,18 @@ extern {
     type Error = parse_error::ParseError;
 }
 
-pub NilLit : ast::NilLit = {
+NilLit : ast::NilLit = {
     "nil" => ast::NilLit,
 }
 
-pub BoolLit : ast::BoolLit = {
+BoolLit : ast::BoolLit = {
     "true" => ast::BoolLit(true),
     "false" => ast::BoolLit(false),
 }
 
 // TODO(kostya): These [is_finite] checks don't actually work in practice, there should be a better
 // way of doing it. 
-pub NumLit : ast::NumLit = {
+NumLit : ast::NumLit = {
     // Floating constants per ISO/IEC 9899:1999 §6.4.4.2
 
     // Decimal floating constants
@@ -159,40 +159,40 @@ pub NumLit : ast::NumLit = {
     },
 }
 
-pub StrLit : ast::StrLit = {
+StrLit : ast::StrLit = {
     r#""[ -!#-\[\]-~\\]*""# => ast::StrLit::from_raw(<>),
 }
 
-pub Lit : ast::Lit = {
+Lit : ast::Lit = {
     NilLit => ast::Lit::Nil(<>),
     BoolLit => ast::Lit::Bool(<>),
     NumLit => ast::Lit::Num(<>),
     StrLit => ast::Lit::Str(<>),
 }
 
-pub UnOp : ast::UnOp = {
+UnOp : ast::UnOp = {
     "-" => ast::UnOp::Neg,
     "!" => ast::UnOp::Not,
 }
 
-pub EqOp : ast::EqOp = {
+EqOp : ast::EqOp = {
     "==" => ast::EqOp::Eq,
     "!=" => ast::EqOp::Ne,
 }
 
-pub CmpOp : ast::CmpOp = {
+CmpOp : ast::CmpOp = {
     "<" => ast::CmpOp::Lt,
     "<=" => ast::CmpOp::Le,
     ">" => ast::CmpOp::Gt,
     ">=" => ast::CmpOp::Ge,
 }
 
-pub AddOp : ast::AddOp = {
+AddOp : ast::AddOp = {
     "+" => ast::AddOp::Add,
     "-" => ast::AddOp::Sub,
 }
 
-pub MulOp : ast::MulOp = {
+MulOp : ast::MulOp = {
     "*" => ast::MulOp::Mul,
     "/" => ast::MulOp::Div,
 }
@@ -201,32 +201,32 @@ pub Expr : ast::Expr = {
     EqExpr => <>
 }
 
-pub EqExpr : ast::Expr = {
+EqExpr : ast::Expr = {
     <l:EqExpr> <op:EqOp> <r:CmpExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Rel(ast::RelOp::Eq(op)), l : Box::new(l), r : Box::new(r) }),
     CmpExpr 
 }
 
-pub CmpExpr : ast::Expr = {
+CmpExpr : ast::Expr = {
     <l:TermExpr> <op:CmpOp> <r:CmpExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Rel(ast::RelOp::Cmp(op)), l : Box::new(l), r : Box::new(r) }),
     TermExpr 
 }
 
-pub TermExpr : ast::Expr = {
+TermExpr : ast::Expr = {
     <l:FactorExpr> <op:AddOp> <r:TermExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Add(op), l : Box::new(l), r : Box::new(r) }),
     FactorExpr 
 }
 
-pub FactorExpr : ast::Expr = {
+FactorExpr : ast::Expr = {
     <l:UnExpr> <op:MulOp> <r:FactorExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Mul(op), l : Box::new(l), r : Box::new(r) }),
     UnExpr
 }
 
-pub UnExpr : ast::Expr = {
+UnExpr : ast::Expr = {
     <op:UnOp> <e:UnExpr> => ast::Expr::Un(ast::UnExpr { op, e : Box::new(e) }),
     PrimExpr,
 }
 
-pub PrimExpr : ast::Expr = {
+PrimExpr : ast::Expr = {
     Lit => ast::Expr::Lit(<>),
     "(" <Expr> ")" => <>
 }
