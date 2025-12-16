@@ -22,6 +22,8 @@ pub BoolLit : ast::BoolLit = {
     "false" => ast::BoolLit(false),
 }
 
+// TODO(kostya): These [is_finite] checks don't actually work in practice, there should be a better
+// way of doing it. 
 pub NumLit : ast::NumLit = {
     // Floating constants per ISO/IEC 9899:1999 §6.4.4.2
 
@@ -93,7 +95,7 @@ pub NumLit : ast::NumLit = {
     // Hexadecimal floating constants
     r"0[xX][0-9a-fA-F]+\.?[0-9a-fA-F]*[pP][+-]?[0-9]+" =>? {
         let x = 
-            f64::from_str(<>)
+            hexf_parse::parse_hexf64(<>, false)
                 .map_err(|source|
                         parse_error::ParseError::NumLit(
                             NumLitParseError::HexadecimalFloatingPointLiteral(
@@ -114,7 +116,7 @@ pub NumLit : ast::NumLit = {
     },
     r"0[xX]\.[0-9a-fA-F]+[pP][+-]?[0-9]+" =>? {
         let x = 
-            f64::from_str(<>)
+            hexf_parse::parse_hexf64(<>, false)
                 .map_err(|source|
                         parse_error::ParseError::NumLit(
                             NumLitParseError::HexadecimalFloatingPointLiteral(
