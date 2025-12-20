@@ -43,6 +43,11 @@ impl Interpreter {
             BinOp::Add(AddOp::Add) => match (l, r) {
                 (Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
                 (Value::Str(l), Value::Str(r)) => Ok(Value::Str(l + &r)),
+                (Value::Str(l), Value::Num(r)) => {
+                    // Challenge 2 from https://craftinginterpreters.com/evaluating-expressions.html#running-the-interpreter
+                    // TODO(kostya): Apply some formatting rules to `r`?
+                    Ok(Value::Str(format!("{l}{r}")))
+                }
                 _ => Err(InvalidOperandTypeError::AddOpAdd)?,
             },
             BinOp::Add(AddOp::Sub) => match (l, r) {
