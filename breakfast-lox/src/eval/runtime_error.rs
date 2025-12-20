@@ -12,6 +12,16 @@ pub enum InvalidOperandTypeError {
     UnOpNotOnNum,
     #[error("cannot apply unary operator `!` on type `string`")]
     UnOpNotOnStr,
+    #[error("cannot apply `==` or `!=`")]
+    EqOp,
+    #[error("cannot apply `<` or `<=` or `>` or `>=`")]
+    CmpOp,
+    #[error("cannot apply `+`")]
+    AddOpAdd,
+    #[error("cannot apply `-`")]
+    AddOpSub,
+    #[error("cannot apply `*` or `/`")]
+    MulOp,
 }
 
 #[derive(Error, Debug)]
