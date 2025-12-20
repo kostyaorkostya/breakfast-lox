@@ -1,5 +1,5 @@
 use super::Value;
-use super::{InvalidOperandTypeError, RuntimeError};
+use super::{ArithmeticError, InvalidOperandTypeError, RuntimeError};
 use crate::ast::{AddOp, BinExpr, BinOp, CmpOp, EqOp, Expr, Lit, MulOp, RelOp, UnExpr, UnOp};
 
 pub struct Interpreter;
@@ -51,9 +51,15 @@ impl Interpreter {
             },
             BinOp::Mul(mul) => match (l, r) {
                 (Value::Num(l), Value::Num(r)) => Ok(Value::Num(match mul {
-                    MulOp::Mul => l * r,
-                    MulOp::Div => l / r,
-                })),
+                    MulOp::Mul => Ok(l * r),
+                    MulOp::Div => {
+                        if r == 0.0 {
+                            Err(ArithmeticError::DivisionByZero)
+                        } else {
+                            Ok(l / r)
+                        }
+                    }
+                }?)),
                 _ => Err(InvalidOperandTypeError::MulOp)?,
             },
         }

@@ -25,7 +25,15 @@ pub enum InvalidOperandTypeError {
 }
 
 #[derive(Error, Debug)]
+pub enum ArithmeticError {
+    #[error("attempt to divide by zero")]
+    DivisionByZero,
+}
+
+#[derive(Error, Debug)]
 pub enum RuntimeError {
     #[error("invalid operand type; {0}")]
     InvalidOperandType(#[from] InvalidOperandTypeError),
+    #[error("arithmetic error; {0}")]
+    Arithmetic(#[from] ArithmeticError),
 }
