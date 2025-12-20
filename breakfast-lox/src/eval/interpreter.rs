@@ -29,7 +29,7 @@ impl Interpreter {
                     }
                     (UnOp::Not, Value::Nil) => {
                         // https://craftinginterpreters.com/evaluating-expressions.html#truthiness-and-falsiness
-                        Ok(Value::Bool(false))
+                        Ok(Value::Bool(true))
                     }
                     (UnOp::Not, Value::Bool(x)) => Ok(Value::Bool(!x)),
                 }
