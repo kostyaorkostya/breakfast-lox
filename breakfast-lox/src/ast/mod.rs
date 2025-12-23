@@ -1,3 +1,10 @@
+use std::fmt;
+
+// TODO(kostya): Implement a Wadler-Lindig approach. `pretty` crate might be useful.
+pub trait Pretty {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
+}
+
 #[derive(Debug)]
 pub struct NilLit;
 
@@ -95,6 +102,8 @@ pub enum Expr {
     Bin(BinExpr),
 }
 
+// impls for each struct
+
 impl StrLit {
     /// Assumes ASCII
     pub fn from_raw(s: &str) -> Self {
@@ -117,5 +126,110 @@ impl StrLit {
             }
         }
         Self(result)
+    }
+}
+
+// impl for `Pretty`
+
+impl Pretty for NilLit {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "nil")
+    }
+}
+
+impl Pretty for BoolLit {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Pretty for NumLit {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO(kostya): What precision and format should it use?
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Pretty for StrLit {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // debug formatting should output escaped string
+        write!(f, "{:?}", self.0)
+    }
+}
+
+impl Pretty for Lit {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Nil(x) => x.pretty(f),
+            Self::Bool(x) => x.pretty(f),
+            Self::Num(x) => x.pretty(f),
+            Self::Str(x) => x.pretty(f),
+        }
+    }
+}
+
+impl Pretty for UnOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Neg => write!(f, "-"),
+            Self::Not => write!(f, "!"),
+        }
+    }
+}
+
+impl Pretty for EqOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Eq => write!(f, "=="),
+            Self::Ne => write!(f, "!="),
+        }
+    }
+}
+
+impl Pretty for CmpOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Lt => write!(f, "<"),
+            Self::Le => write!(f, "<="),
+            Self::Gt => write!(f, ">"),
+            Self::Ge => write!(f, ">="),
+        }
+    }
+}
+
+impl Pretty for RelOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Eq(x) => x.pretty(f),
+            Self::Cmp(x) => x.pretty(f),
+        }
+    }
+}
+
+impl Pretty for AddOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Add => write!(f, "+"),
+            Self::Sub => write!(f, "-"),
+        }
+    }
+}
+
+impl Pretty for MulOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Mul => write!(f, "*"),
+            Self::Div => write!(f, "/"),
+        }
+    }
+}
+
+impl Pretty for BinOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Rel(x) => x.pretty(f),
+            Self::Add(x) => x.pretty(f),
+            Self::Mul(x) => x.pretty(f),
+        }
     }
 }
