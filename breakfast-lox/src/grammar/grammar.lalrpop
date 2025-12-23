@@ -20,6 +20,8 @@ match {
     r"//[^\n]*" => {},
     // block comments
     // TODO(kostya): Support nested comments (this will require moving to a custom lexer.
+    // TODO(kostya): Support comments in the AST. This will mean that (1) comments must be modelled
+    // in the AST (2) a decision must be made on where to attach comments
     r"/\*[^*]*\*+([^/*][^*]*\*+)*/" => {},
     _
 }
