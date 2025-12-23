@@ -13,6 +13,17 @@ extern {
     type Error = parse_error::ParseError;
 }
 
+match {
+    // whitespace
+    r"\s+" => {},
+    // line comments
+    r"//[^\n]*" => {},
+    // block comments
+    // TODO(kostya): Support nested comments (this will require moving to a custom lexer.
+    r"/\*[^*]*\*+([^/*][^*]*\*+)*/" => {},
+    _
+}
+
 NilLit : ast::NilLit = {
     "nil" => ast::NilLit,
 }
