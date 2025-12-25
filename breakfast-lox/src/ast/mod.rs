@@ -3,6 +3,16 @@ use std::fmt;
 // TODO(kostya): Implement a Wadler-Lindig approach. `pretty` crate might be useful.
 pub trait Pretty {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
+
+    fn display(&self) -> impl fmt::Display + '_ {
+        struct Adapter<'a, T: Pretty + ?Sized>(&'a T);
+        impl<T: Pretty + ?Sized> fmt::Display for Adapter<'_, T> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                self.0.pretty(f)
+            }
+        }
+        Adapter(self)
+    }
 }
 
 #[derive(Debug)]
@@ -230,6 +240,30 @@ impl Pretty for BinOp {
             Self::Rel(x) => x.pretty(f),
             Self::Add(x) => x.pretty(f),
             Self::Mul(x) => x.pretty(f),
+        }
+    }
+}
+
+impl Pretty for UnExpr {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { op, e } = self;
+        write!(f, "{}({})", op.display(), e.display())
+    }
+}
+
+impl Pretty for BinExpr {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { op, l, r } = self;
+        write!(f, "({} {} {})", l.display(), op.display(), r.display())
+    }
+}
+
+impl Pretty for Expr {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Lit(x) => x.pretty(f),
+            Self::Un(x) => x.pretty(f),
+            Self::Bin(x) => x.pretty(f),
         }
     }
 }
