@@ -53,6 +53,22 @@ mod prog {
         .assert_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_print_with_vars() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var prefix = "Hello, ";
+            var suffix = "world!";
+            print (prefix + suffix);
+        "#,
+        )?;
+        expect![[r#"
+            Hello, world!
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {
