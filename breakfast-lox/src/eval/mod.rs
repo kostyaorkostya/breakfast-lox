@@ -7,5 +7,8 @@ pub use interpreter::Interpreter;
 mod value;
 pub use value::Value;
 
+mod stringify;
+use stringify::Stringify;
+
 #[cfg(test)]
 mod tests;
