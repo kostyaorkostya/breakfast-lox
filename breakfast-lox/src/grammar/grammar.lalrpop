@@ -130,8 +130,8 @@ Lit : ast::Lit = {
     StrLit => ast::Lit::Str(<>),
 }
 
-Var : ast::Var = {
-    IDENTIFIER => ast::Var(<>.into()),
+VarName : ast::VarName = {
+    IDENTIFIER => ast::VarName(<>.into()),
 }
 
 UnOp : ast::UnOp = {
@@ -192,7 +192,7 @@ UnExpr : ast::Expr = {
 
 PrimExpr : ast::Expr = {
     Lit => ast::Expr::Lit(<>),
-    Var => ast::Expr::Var(<>),
+    VarName => ast::Expr::Var(<>),
     "(" <Expr> ")" => <>
 }
 
@@ -206,7 +206,7 @@ Stmt : ast::Stmt = {
 }
 
 VarDecl : ast::VarDecl = {
-    VAR_KEYWORD <var:Var> <init:("=" <Expr>)?> ";" => ast::VarDecl { var , init },
+    VAR_KEYWORD <name:VarName> <init:("=" <Expr>)?> ";" => ast::VarDecl { name , init },
 }
 
 DeclStmt : ast::Stmt = {

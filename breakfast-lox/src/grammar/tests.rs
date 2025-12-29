@@ -139,7 +139,7 @@ mod prog {
                 [
                     VarDecl(
                         VarDecl {
-                            var: Var(
+                            name: VarName(
                                 "foo",
                             ),
                             init: Some(
@@ -155,7 +155,7 @@ mod prog {
                     ),
                     VarDecl(
                         VarDecl {
-                            var: Var(
+                            name: VarName(
                                 "bar",
                             ),
                             init: Some(
@@ -177,12 +177,12 @@ mod prog {
                                         Add,
                                     ),
                                     l: Var(
-                                        Var(
+                                        VarName(
                                             "foo",
                                         ),
                                     ),
                                     r: Var(
-                                        Var(
+                                        VarName(
                                             "bar",
                                         ),
                                     ),

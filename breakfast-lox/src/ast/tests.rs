@@ -1,7 +1,7 @@
 mod pretty {
     use super::super::{
-        AddOp, BinExpr, BinOp, Expr, Lit, NumLit, Pretty, PrintStmt, Prog, Stmt, StrLit, Var,
-        VarDecl,
+        AddOp, BinExpr, BinOp, Expr, Lit, NumLit, Pretty, PrintStmt, Prog, Stmt, StrLit, VarDecl,
+        VarName,
     };
     use expect_test::expect;
 
@@ -36,10 +36,10 @@ mod pretty {
     fn test_var_decl() -> anyhow::Result<()> {
         let actual = Prog(vec![
             Stmt::VarDecl(VarDecl {
-                var: Var("foo".into()),
+                name: VarName("foo".into()),
                 init: Some(Expr::Lit(Lit::Str(StrLit("bar".into())))),
             }),
-            Stmt::Print(PrintStmt(Expr::Var(Var("foo".into())))),
+            Stmt::Print(PrintStmt(Expr::Var(VarName("foo".into())))),
         ])
         .display()
         .to_string();

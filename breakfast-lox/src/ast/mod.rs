@@ -36,7 +36,7 @@ pub enum Lit {
 }
 
 #[derive(Debug)]
-pub struct Var(pub String);
+pub struct VarName(pub String);
 
 #[derive(Debug)]
 pub enum UnOp {
@@ -113,12 +113,12 @@ pub enum Expr {
     Lit(Lit),
     Un(UnExpr),
     Bin(BinExpr),
-    Var(Var),
+    Var(VarName),
 }
 
 #[derive(Debug)]
 pub struct VarDecl {
-    pub var: Var,
+    pub name: VarName,
     pub init: Option<Expr>,
 }
 
@@ -207,7 +207,7 @@ impl Pretty for Lit {
     }
 }
 
-impl Pretty for Var {
+impl Pretty for VarName {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(x) = self;
         write!(f, "{}", x)
@@ -307,10 +307,10 @@ impl Pretty for Expr {
 
 impl Pretty for VarDecl {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { var, init } = self;
+        let Self { name, init } = self;
         match init {
-            Some(init) => writeln!(f, "var {} = {};", var.display(), init.display()),
-            None => writeln!(f, "var {};", var.display()),
+            Some(init) => writeln!(f, "var {} = {};", name.display(), init.display()),
+            None => writeln!(f, "var {};", name.display()),
         }
     }
 }

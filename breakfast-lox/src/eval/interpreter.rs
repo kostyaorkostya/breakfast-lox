@@ -1,9 +1,6 @@
 use super::Value;
 use super::{ArithmeticError, InvalidOperandTypeError, RuntimeError, Stringify, Truthy};
-use crate::ast::{
-    AddOp, BinExpr, BinOp, CmpOp, EqOp, Expr, ExprStmt, Lit, MulOp, PrintStmt, Prog, RelOp, Stmt,
-    UnExpr, UnOp, Var, VarDecl,
-};
+use crate::ast;
 use std::io;
 
 #[cfg(test)]
@@ -41,41 +38,45 @@ impl Interpreter {
         }
     }
 
-    pub(super) fn eval_un_expr(&self, op: &UnOp, e: &Expr) -> Result<Value, RuntimeError> {
+    pub(super) fn eval_un_expr(
+        &self,
+        op: &ast::UnOp,
+        e: &ast::Expr,
+    ) -> Result<Value, RuntimeError> {
         match (op, self.eval_expr(&e)?) {
-            (UnOp::Neg, Value::Nil) => Err(InvalidOperandTypeError::UnOpNegOnNil)?,
-            (UnOp::Neg, Value::Bool(_)) => Err(InvalidOperandTypeError::UnOpNegOnBool)?,
-            (UnOp::Neg, Value::Str(_)) => Err(InvalidOperandTypeError::UnOpNegOnStr)?,
-            (UnOp::Neg, Value::Num(x)) => {
+            (ast::UnOp::Neg, Value::Nil) => Err(InvalidOperandTypeError::UnOpNegOnNil)?,
+            (ast::UnOp::Neg, Value::Bool(_)) => Err(InvalidOperandTypeError::UnOpNegOnBool)?,
+            (ast::UnOp::Neg, Value::Str(_)) => Err(InvalidOperandTypeError::UnOpNegOnStr)?,
+            (ast::UnOp::Neg, Value::Num(x)) => {
                 // TODO(kostya): check if `-x` is representable
                 Ok(Value::Num(-x))
             }
-            (UnOp::Not, e) => Ok(Value::Bool(!e.truthy())),
+            (ast::UnOp::Not, e) => Ok(Value::Bool(!e.truthy())),
         }
     }
 
     pub(super) fn eval_bin_expr(
         &self,
-        op: &BinOp,
-        l: &Expr,
-        r: &Expr,
+        op: &ast::BinOp,
+        l: &ast::Expr,
+        r: &ast::Expr,
     ) -> Result<Value, RuntimeError> {
         let (l, r) = (self.eval_expr(&l)?, self.eval_expr(&r)?);
         match op {
-            BinOp::Rel(RelOp::Eq(op)) => Ok(Value::Bool(match op {
-                EqOp::Eq => l == r,
-                EqOp::Ne => l != r,
+            ast::BinOp::Rel(ast::RelOp::Eq(op)) => Ok(Value::Bool(match op {
+                ast::EqOp::Eq => l == r,
+                ast::EqOp::Ne => l != r,
             })),
-            BinOp::Rel(RelOp::Cmp(cmp)) => match (l, r) {
+            ast::BinOp::Rel(ast::RelOp::Cmp(cmp)) => match (l, r) {
                 (Value::Num(l), Value::Num(r)) => Ok(Value::Bool(match cmp {
-                    CmpOp::Lt => l < r,
-                    CmpOp::Le => l <= r,
-                    CmpOp::Gt => l > r,
-                    CmpOp::Ge => l >= r,
+                    ast::CmpOp::Lt => l < r,
+                    ast::CmpOp::Le => l <= r,
+                    ast::CmpOp::Gt => l > r,
+                    ast::CmpOp::Ge => l >= r,
                 })),
                 _ => Err(InvalidOperandTypeError::CmpOp)?,
             },
-            BinOp::Add(AddOp::Add) => match (l, r) {
+            ast::BinOp::Add(ast::AddOp::Add) => match (l, r) {
                 (Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
                 (Value::Str(l), Value::Str(r)) => Ok(Value::Str(l + &r)),
                 (Value::Str(l), r @ Value::Num(_)) => {
@@ -85,14 +86,14 @@ impl Interpreter {
                 }
                 _ => Err(InvalidOperandTypeError::AddOpAdd)?,
             },
-            BinOp::Add(AddOp::Sub) => match (l, r) {
+            ast::BinOp::Add(ast::AddOp::Sub) => match (l, r) {
                 (Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
                 _ => Err(InvalidOperandTypeError::AddOpSub)?,
             },
-            BinOp::Mul(mul) => match (l, r) {
+            ast::BinOp::Mul(mul) => match (l, r) {
                 (Value::Num(l), Value::Num(r)) => Ok(Value::Num(match mul {
-                    MulOp::Mul => Ok(l * r),
-                    MulOp::Div => {
+                    ast::MulOp::Mul => Ok(l * r),
+                    ast::MulOp::Div => {
                         if r == 0.0 {
                             Err(ArithmeticError::DivisionByZero)
                         } else {
@@ -105,26 +106,26 @@ impl Interpreter {
         }
     }
 
-    fn eval_var(&self, _var: &Var) -> Result<Value, RuntimeError> {
+    fn eval_var(&self, _var: &ast::VarName) -> Result<Value, RuntimeError> {
         Err(RuntimeError::Unimplemented)?
     }
 
-    pub(super) fn eval_expr(&self, expr: &Expr) -> Result<Value, RuntimeError> {
+    pub(super) fn eval_expr(&self, expr: &ast::Expr) -> Result<Value, RuntimeError> {
         match expr {
-            Expr::Lit(lit) => Ok(match lit {
-                Lit::Nil(_) => Value::Nil,
-                Lit::Bool(x) => Value::Bool(x.0),
-                Lit::Num(x) => Value::Num(x.0),
-                Lit::Str(x) => Value::Str(x.0.clone()),
+            ast::Expr::Lit(lit) => Ok(match lit {
+                ast::Lit::Nil(_) => Value::Nil,
+                ast::Lit::Bool(x) => Value::Bool(x.0),
+                ast::Lit::Num(x) => Value::Num(x.0),
+                ast::Lit::Str(x) => Value::Str(x.0.clone()),
             }),
-            Expr::Un(UnExpr { op, e }) => self.eval_un_expr(op, e),
-            Expr::Bin(BinExpr { op, l, r }) => self.eval_bin_expr(op, l, r),
-            Expr::Var(x) => self.eval_var(x),
+            ast::Expr::Un(ast::UnExpr { op, e }) => self.eval_un_expr(op, e),
+            ast::Expr::Bin(ast::BinExpr { op, l, r }) => self.eval_bin_expr(op, l, r),
+            ast::Expr::Var(x) => self.eval_var(x),
         }
     }
 
-    fn eval_var_decl(&self, var_decl: &VarDecl) -> Result<(), RuntimeError> {
-        let VarDecl { var: _, init } = var_decl;
+    fn eval_var_decl(&self, var_decl: &ast::VarDecl) -> Result<(), RuntimeError> {
+        let ast::VarDecl { name: _, init } = var_decl;
         match init {
             None => Err(RuntimeError::Unimplemented)?,
             Some(init) => {
@@ -134,26 +135,26 @@ impl Interpreter {
         }
     }
 
-    fn eval_stmt(&mut self, stmt: &Stmt) -> Result<(), RuntimeError> {
+    fn eval_stmt(&mut self, stmt: &ast::Stmt) -> Result<(), RuntimeError> {
         match stmt {
-            Stmt::Expr(ExprStmt(x)) => {
+            ast::Stmt::Expr(ast::ExprStmt(x)) => {
                 // https://craftinginterpreters.com/statements-and-state.html#executing-statements
                 // > We evaluate the inner expression using our existing evaluate() method and
                 // > discard the value.
                 let _ = self.eval_expr(x)?;
                 Ok(())
             }
-            Stmt::Print(PrintStmt(x)) => {
+            ast::Stmt::Print(ast::PrintStmt(x)) => {
                 let x = self.eval_expr(x)?;
                 writeln!(self.output, "{}", x.display())?;
                 Ok(())
             }
-            Stmt::VarDecl(x) => self.eval_var_decl(x),
+            ast::Stmt::VarDecl(x) => self.eval_var_decl(x),
         }
     }
 
-    pub fn eval_prog(&mut self, prog: &Prog) -> Result<(), RuntimeError> {
-        let Prog(stmts) = prog;
+    pub fn eval_prog(&mut self, prog: &ast::Prog) -> Result<(), RuntimeError> {
+        let ast::Prog(stmts) = prog;
         for stmt in stmts {
             self.eval_stmt(stmt)?
         }
