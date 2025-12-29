@@ -131,7 +131,7 @@ Lit : ast::Lit = {
 }
 
 VarName : ast::VarName = {
-    IDENTIFIER => ast::VarName(<>.into()),
+    IDENTIFIER => ast::VarName::new(<>),
 }
 
 UnOp : ast::UnOp = {

@@ -1,3 +1,4 @@
+use nutype::nutype;
 use std::fmt;
 
 // TODO(kostya): Implement a Wadler-Lindig approach. `pretty` crate might be useful.
@@ -35,8 +36,8 @@ pub enum Lit {
     Str(StrLit),
 }
 
-#[derive(Debug)]
-pub struct VarName(pub String);
+#[nutype(derive(Debug, Deref, Borrow, FromStr))]
+pub struct VarName(String);
 
 #[derive(Debug)]
 pub enum UnOp {
@@ -209,8 +210,7 @@ impl Pretty for Lit {
 
 impl Pretty for VarName {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(x) = self;
-        write!(f, "{}", x)
+        write!(f, "{}", **self)
     }
 }
 

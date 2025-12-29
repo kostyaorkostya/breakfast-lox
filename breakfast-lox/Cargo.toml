@@ -13,6 +13,7 @@ clap = { version = "4.5.49", features = ["derive"] }
 lalrpop-util = { version = "0.22.2",  features = [ "lexer" ] }
 thiserror = "2.0.17"
 hexf-parse = "0.2.1"
+nutype = "0.6.2"
 
 [build-dependencies]
 lalrpop = "0.22.2"

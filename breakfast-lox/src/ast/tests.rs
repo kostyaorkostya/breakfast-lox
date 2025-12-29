@@ -36,10 +36,10 @@ mod pretty {
     fn test_var_decl() -> anyhow::Result<()> {
         let actual = Prog(vec![
             Stmt::VarDecl(VarDecl {
-                name: VarName("foo".into()),
+                name: VarName::new("foo"),
                 init: Some(Expr::Lit(Lit::Str(StrLit("bar".into())))),
             }),
-            Stmt::Print(PrintStmt(Expr::Var(VarName("foo".into())))),
+            Stmt::Print(PrintStmt(Expr::Var(VarName::new("foo")))),
         ])
         .display()
         .to_string();

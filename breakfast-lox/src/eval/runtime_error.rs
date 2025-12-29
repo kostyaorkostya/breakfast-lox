@@ -1,3 +1,4 @@
+use super::UndefinedVariableError;
 use std::io;
 use thiserror::Error;
 
@@ -35,6 +36,8 @@ pub enum RuntimeError {
     Arithmetic(#[from] ArithmeticError),
     #[error("IO error; {0}")]
     InputOutput(#[from] io::Error),
+    #[error("undefined variable; {0}")]
+    UndefinedVariable(#[from] UndefinedVariableError),
     #[error("unimplemented")]
     Unimplemented,
 }

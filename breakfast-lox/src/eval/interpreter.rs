@@ -1,5 +1,5 @@
-use super::Value;
 use super::{ArithmeticError, InvalidOperandTypeError, RuntimeError, Stringify, Truthy};
+use super::{Env, Value, VarName};
 use crate::ast;
 use std::io;
 
@@ -10,11 +10,15 @@ use std::rc::Rc;
 
 pub struct Interpreter {
     output: Box<dyn io::Write>,
+    env: Env,
 }
 
 impl Interpreter {
     pub fn new(output: Box<dyn io::Write>) -> Self {
-        Self { output }
+        Self {
+            output,
+            env: Env::new(),
+        }
     }
 
     #[cfg(test)]
@@ -35,6 +39,7 @@ impl Interpreter {
                 Some(x) => Box::new(SharedWriter(x)),
                 None => Box::new(io::sink()),
             },
+            env: Env::new(),
         }
     }
 
@@ -106,10 +111,6 @@ impl Interpreter {
         }
     }
 
-    fn eval_var(&self, _var: &ast::VarName) -> Result<Value, RuntimeError> {
-        Err(RuntimeError::Unimplemented)?
-    }
-
     pub(super) fn eval_expr(&self, expr: &ast::Expr) -> Result<Value, RuntimeError> {
         match expr {
             ast::Expr::Lit(lit) => Ok(match lit {
@@ -120,19 +121,20 @@ impl Interpreter {
             }),
             ast::Expr::Un(ast::UnExpr { op, e }) => self.eval_un_expr(op, e),
             ast::Expr::Bin(ast::BinExpr { op, l, r }) => self.eval_bin_expr(op, l, r),
-            ast::Expr::Var(x) => self.eval_var(x),
+            ast::Expr::Var(x) => Ok(self.env.get(&**x)?),
         }
     }
 
-    fn eval_var_decl(&self, var_decl: &ast::VarDecl) -> Result<(), RuntimeError> {
-        let ast::VarDecl { name: _, init } = var_decl;
+    fn eval_var_decl(&mut self, var_decl: &ast::VarDecl) -> Result<(), RuntimeError> {
+        let ast::VarDecl { name, init } = var_decl;
         match init {
-            None => Err(RuntimeError::Unimplemented)?,
+            None => self.env.define(VarName::new((**name).clone()), Value::Nil),
             Some(init) => {
-                let _init = self.eval_expr(init)?;
-                Err(RuntimeError::Unimplemented)?
+                let init = self.eval_expr(init)?;
+                self.env.define(VarName::new((**name).clone()), init)
             }
         }
+        Ok(())
     }
 
     fn eval_stmt(&mut self, stmt: &ast::Stmt) -> Result<(), RuntimeError> {

@@ -1,7 +1,7 @@
 use super::{Stringify, Truthy};
 use std::fmt;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Nil,
     Bool(bool),
