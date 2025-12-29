@@ -267,3 +267,8 @@ impl Pretty for Expr {
         }
     }
 }
+
+// tests
+
+#[cfg(test)]
+mod tests;
