@@ -244,3 +244,20 @@ PrimExpr : ast::Expr = {
     Lit => ast::Expr::Lit(<>),
     "(" <Expr> ")" => <>
 }
+
+Program : ast::Program = {
+    Stmt* => ast::Program(<>),
+}
+
+Stmt : ast::Stmt = {
+    ExprStmt => ast::Stmt::Expr(<>),
+    PrintStmt => ast::Stmt::Print(<>),
+}
+
+ExprStmt : ast::ExprStmt = {
+    <Expr> ";" => ast::ExprStmt(<>),
+}
+
+PrintStmt : ast::PrintStmt = {
+    "print" <Expr> ";" => ast::PrintStmt(<>),
+}
