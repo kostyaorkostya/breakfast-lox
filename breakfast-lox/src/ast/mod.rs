@@ -112,6 +112,21 @@ pub enum Expr {
     Bin(BinExpr),
 }
 
+#[derive(Debug)]
+pub struct PrintStmt(pub Expr);
+
+#[derive(Debug)]
+pub struct ExprStmt(pub Expr);
+
+#[derive(Debug)]
+pub enum Stmt {
+    Expr(ExprStmt),
+    Print(PrintStmt),
+}
+
+#[derive(Debug)]
+pub struct Program(pub Vec<Stmt>);
+
 // impls for each struct
 
 impl StrLit {
@@ -149,21 +164,24 @@ impl Pretty for NilLit {
 
 impl Pretty for BoolLit {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        let Self(x) = self;
+        write!(f, "{}", x)
     }
 }
 
 impl Pretty for NumLit {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(x) = self;
         // TODO(kostya): What precision and format should it use?
-        write!(f, "{}", self.0)
+        write!(f, "{}", x)
     }
 }
 
 impl Pretty for StrLit {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(x) = self;
         // debug formatting should output escaped string
-        write!(f, "{:?}", self.0)
+        write!(f, "{:?}", x)
     }
 }
 
@@ -265,6 +283,39 @@ impl Pretty for Expr {
             Self::Un(x) => x.pretty(f),
             Self::Bin(x) => x.pretty(f),
         }
+    }
+}
+
+impl Pretty for PrintStmt {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(x) = self;
+        write!(f, "print {};\n", x.display())
+    }
+}
+
+impl Pretty for ExprStmt {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(x) = self;
+        write!(f, "{};\n", x.display())
+    }
+}
+
+impl Pretty for Stmt {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Expr(x) => x.pretty(f),
+            Self::Print(x) => x.pretty(f),
+        }
+    }
+}
+
+impl Pretty for Program {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(xs) = self;
+        for x in xs {
+            x.pretty(f)?
+        }
+        Ok(())
     }
 }
 
