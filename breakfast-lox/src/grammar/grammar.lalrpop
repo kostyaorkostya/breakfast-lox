@@ -197,7 +197,7 @@ PrimExpr : ast::Expr = {
 }
 
 pub Prog : ast::Prog = {
-    Stmt* => ast::Prog(<>),
+    DeclStmt* => ast::Prog(<>),
 }
 
 Stmt : ast::Stmt = {

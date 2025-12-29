@@ -120,3 +120,80 @@ mod num_literal {
         ));
     }
 }
+
+mod prog {
+    use super::super::ProgParser;
+    use expect_test::expect;
+
+    #[test]
+    fn test_basic() -> anyhow::Result<()> {
+        let actual = ProgParser::new().parse(
+            r#"
+            var foo = "foo";
+            var bar = "bar";
+            print (foo + bar);
+    "#,
+        )?;
+        expect![[r#"
+            Prog(
+                [
+                    VarDecl(
+                        VarDecl {
+                            var: Var(
+                                "foo",
+                            ),
+                            init: Some(
+                                Lit(
+                                    Str(
+                                        StrLit(
+                                            "foo",
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        },
+                    ),
+                    VarDecl(
+                        VarDecl {
+                            var: Var(
+                                "bar",
+                            ),
+                            init: Some(
+                                Lit(
+                                    Str(
+                                        StrLit(
+                                            "bar",
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        },
+                    ),
+                    Print(
+                        PrintStmt(
+                            Bin(
+                                BinExpr {
+                                    op: Add(
+                                        Add,
+                                    ),
+                                    l: Var(
+                                        Var(
+                                            "foo",
+                                        ),
+                                    ),
+                                    r: Var(
+                                        Var(
+                                            "bar",
+                                        ),
+                                    ),
+                                },
+                            ),
+                        ),
+                    ),
+                ],
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
+}
