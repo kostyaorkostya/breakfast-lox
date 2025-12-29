@@ -121,6 +121,9 @@ impl Interpreter {
     fn eval_stmt(&mut self, stmt: &Stmt) -> Result<(), RuntimeError> {
         match stmt {
             Stmt::Expr(ExprStmt(x)) => {
+                // https://craftinginterpreters.com/statements-and-state.html#executing-statements
+                // > We evaluate the inner expression using our existing evaluate() method and
+                // > discard the value.
                 let _ = self.eval_expr(x)?;
                 Ok(())
             }
