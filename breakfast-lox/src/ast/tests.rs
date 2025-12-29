@@ -1,6 +1,6 @@
 mod pretty {
     use super::super::{
-        AddOp, BinExpr, BinOp, Expr, Lit, NumLit, Pretty, PrintStmt, Program, Stmt, StrLit,
+        AddOp, BinExpr, BinOp, Expr, Lit, NumLit, Pretty, PrintStmt, Prog, Stmt, StrLit,
     };
     use expect_test::expect;
 
@@ -19,14 +19,15 @@ mod pretty {
 
     #[test]
     fn test_program() -> anyhow::Result<()> {
-        let actual = Program(vec![Stmt::Print(PrintStmt(Expr::Lit(Lit::Str(StrLit(
+        let actual = Prog(vec![Stmt::Print(PrintStmt(Expr::Lit(Lit::Str(StrLit(
             "hello".into(),
         )))))])
         .display()
         .to_string();
         expect![[r#"
             print "hello";
-        "#]].assert_eq(&actual);
+        "#]]
+        .assert_eq(&actual);
         Ok(())
     }
 }

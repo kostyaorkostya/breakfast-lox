@@ -1,3 +1,4 @@
+use std::io;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -32,4 +33,6 @@ pub enum RuntimeError {
     InvalidOperandType(#[from] InvalidOperandTypeError),
     #[error("arithmetic error; {0}")]
     Arithmetic(#[from] ArithmeticError),
+    #[error("IO error; {0}")]
+    InputOutput(#[from] io::Error),
 }

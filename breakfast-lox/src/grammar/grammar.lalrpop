@@ -245,8 +245,8 @@ PrimExpr : ast::Expr = {
     "(" <Expr> ")" => <>
 }
 
-Program : ast::Program = {
-    Stmt* => ast::Program(<>),
+pub Prog : ast::Prog = {
+    Stmt* => ast::Prog(<>),
 }
 
 Stmt : ast::Stmt = {

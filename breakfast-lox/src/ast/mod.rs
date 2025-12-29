@@ -125,7 +125,7 @@ pub enum Stmt {
 }
 
 #[derive(Debug)]
-pub struct Program(pub Vec<Stmt>);
+pub struct Prog(pub Vec<Stmt>);
 
 // impls for each struct
 
@@ -309,7 +309,7 @@ impl Pretty for Stmt {
     }
 }
 
-impl Pretty for Program {
+impl Pretty for Prog {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(xs) = self;
         for x in xs {
