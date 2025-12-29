@@ -1,5 +1,5 @@
 use super::Value;
-use super::{ArithmeticError, InvalidOperandTypeError, RuntimeError};
+use super::{ArithmeticError, InvalidOperandTypeError, RuntimeError, Stringify, Truthy};
 use crate::ast::{AddOp, BinExpr, BinOp, CmpOp, EqOp, Expr, Lit, MulOp, RelOp, UnExpr, UnOp};
 
 pub struct Interpreter;
@@ -10,17 +10,11 @@ impl Interpreter {
             (UnOp::Neg, Value::Nil) => Err(InvalidOperandTypeError::UnOpNegOnNil)?,
             (UnOp::Neg, Value::Bool(_)) => Err(InvalidOperandTypeError::UnOpNegOnBool)?,
             (UnOp::Neg, Value::Str(_)) => Err(InvalidOperandTypeError::UnOpNegOnStr)?,
-            (UnOp::Not, Value::Num(_)) => Err(InvalidOperandTypeError::UnOpNotOnNum)?,
-            (UnOp::Not, Value::Str(_)) => Err(InvalidOperandTypeError::UnOpNotOnStr)?,
             (UnOp::Neg, Value::Num(x)) => {
                 // TODO(kostya): check if `-x` is representable
                 Ok(Value::Num(-x))
             }
-            (UnOp::Not, Value::Nil) => {
-                // https://craftinginterpreters.com/evaluating-expressions.html#truthiness-and-falsiness
-                Ok(Value::Bool(true))
-            }
-            (UnOp::Not, Value::Bool(x)) => Ok(Value::Bool(!x)),
+            (UnOp::Not, e) => Ok(Value::Bool(!e.truthy())),
         }
     }
 
@@ -43,10 +37,10 @@ impl Interpreter {
             BinOp::Add(AddOp::Add) => match (l, r) {
                 (Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
                 (Value::Str(l), Value::Str(r)) => Ok(Value::Str(l + &r)),
-                (Value::Str(l), Value::Num(r)) => {
+                (Value::Str(l), r @ Value::Num(_)) => {
                     // Challenge 2 from https://craftinginterpreters.com/evaluating-expressions.html#running-the-interpreter
                     // TODO(kostya): Apply some formatting rules to `r`?
-                    Ok(Value::Str(format!("{l}{r}")))
+                    Ok(Value::Str(format!("{l}{}", r.display())))
                 }
                 _ => Err(InvalidOperandTypeError::AddOpAdd)?,
             },

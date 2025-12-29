@@ -8,10 +8,6 @@ pub enum InvalidOperandTypeError {
     UnOpNegOnBool,
     #[error("cannot apply unary operator `-` on type `string`")]
     UnOpNegOnStr,
-    #[error("cannot apply unary operator `!` on type `number`")]
-    UnOpNotOnNum,
-    #[error("cannot apply unary operator `!` on type `string`")]
-    UnOpNotOnStr,
     #[error("cannot apply `==` or `!=`")]
     EqOp,
     #[error("cannot apply `<` or `<=` or `>` or `>=`")]

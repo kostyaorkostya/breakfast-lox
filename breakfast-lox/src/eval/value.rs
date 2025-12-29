@@ -1,4 +1,4 @@
-use super::Stringify;
+use super::{Stringify, Truthy};
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
@@ -16,6 +16,17 @@ impl Stringify for Value {
             Self::Bool(x) => write!(f, "{x}"),
             Self::Num(x) => write!(f, "{x}"),
             Self::Str(x) => write!(f, "{x}"),
+        }
+    }
+}
+
+// https://craftinginterpreters.com/evaluating-expressions.html#truthiness-and-falsiness
+impl Truthy for Value {
+    fn truthy(&self) -> bool {
+        match self {
+            Self::Nil => false,
+            Self::Bool(x) => *x,
+            Self::Num(_) | Self::Str(_) => true,
         }
     }
 }

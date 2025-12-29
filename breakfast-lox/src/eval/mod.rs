@@ -10,5 +10,8 @@ pub use value::Value;
 mod stringify;
 use stringify::Stringify;
 
+mod truthy;
+use truthy::Truthy;
+
 #[cfg(test)]
 mod tests;
