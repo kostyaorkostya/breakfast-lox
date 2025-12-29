@@ -24,11 +24,21 @@ match {
     // in the AST (2) a decision must be made on where to attach comments. This will be required to
     // implement a formatter.
     r"/\*[^*]*\*+([^/*][^*]*\*+)*/" => {},
+    "nil" => NIL,
+    "print" => PRINT_KEYWORD,
+    "var" => VAR_KEYWORD,
+    r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENTIFIER,
+    // Decimal floating constants
+    r"[0-9]+\.([0-9]+)?([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+|\.[0-9]+([eE][+-]?[0-9]+)?" => DEC_FLOAT,
+    // Hexadecimal floating constants
+    r"0[xX][0-9a-fA-F]+\.?[0-9a-fA-F]*[pP][+-]?[0-9]+|0[xX]\.[0-9a-fA-F]+[pP][+-]?[0-9]+" => HEX_FLOAT, 
+    r"[0-9]+" => INTEGER,
+    r#""[ -!#-\[\]-~\\]*""# => STRING,
     _
 }
 
 NilLit : ast::NilLit = {
-    "nil" => ast::NilLit,
+    NIL => ast::NilLit,
 }
 
 BoolLit : ast::BoolLit = {
@@ -41,15 +51,14 @@ BoolLit : ast::BoolLit = {
 NumLit : ast::NumLit = {
     // Floating constants per ISO/IEC 9899:1999 §6.4.4.2
 
-    // Decimal floating constants
-    r"[0-9]+\.([0-9]+)?([eE][+-]?[0-9]+)?" =>? {
+    DEC_FLOAT =>? {
         let x = 
             f64::from_str(<>)
                 .map_err(|source| 
                     parse_error::ParseError::NumLit(
                         NumLitParseError::DecimalFloatingPointLiteral(
                             DecimalFloatingPointLiteralParseError {
-                                token : <>.to_owned(),
+                                token : <>.into(),
                                 source : source.into(),
                             })))?;
         if x.is_finite() {
@@ -59,62 +68,20 @@ NumLit : ast::NumLit = {
                 parse_error::ParseError::NumLit(
                     NumLitParseError::NumberIsNotFinite(
                         NumberIsNotFiniteParseError {
-                            token : <>.to_owned(),
-                            })))?
-        }
-    },
-    r"[0-9]+[eE][+-]?[0-9]+" =>? {
-        let x = 
-            f64::from_str(<>)
-                .map_err(|source| 
-                    parse_error::ParseError::NumLit(
-                        NumLitParseError::DecimalFloatingPointLiteral(
-                            DecimalFloatingPointLiteralParseError {
-                                token : <>.to_owned(),
-                                source : source.into(),
-                            })))?;
-        if x.is_finite() {
-            Ok(ast::NumLit(x))
-        } else {
-            Err(
-                parse_error::ParseError::NumLit(
-                    NumLitParseError::NumberIsNotFinite(
-                        NumberIsNotFiniteParseError {
-                            token : <>.to_owned(),
-                            })))?
-        }
-    },
-    r"\.[0-9]+([eE][+-]?[0-9]+)?" =>? {
-        let x = 
-            f64::from_str(<>)
-                .map_err(|source| 
-                    parse_error::ParseError::NumLit(
-                        NumLitParseError::DecimalFloatingPointLiteral(
-                            DecimalFloatingPointLiteralParseError {
-                                token : <>.to_owned(),
-                                source : source.into(),
-                            })))?;
-        if x.is_finite() {
-            Ok(ast::NumLit(x))
-        } else {
-            Err(
-                parse_error::ParseError::NumLit(
-                    NumLitParseError::NumberIsNotFinite(
-                        NumberIsNotFiniteParseError {
-                            token : <>.to_owned(),
+                            token : <>.into(),
                             })))?
         }
     },
 
     // Hexadecimal floating constants
-    r"0[xX][0-9a-fA-F]+\.?[0-9a-fA-F]*[pP][+-]?[0-9]+" =>? {
+    HEX_FLOAT =>? {
         let x = 
             hexf_parse::parse_hexf64(<>, false)
                 .map_err(|source|
                         parse_error::ParseError::NumLit(
                             NumLitParseError::HexadecimalFloatingPointLiteral(
                                 HexadecimalFloatingPointLiteralParseError {
-                                    token : <>.to_owned(),
+                                    token : <>.into(),
                                     source : source.into(),
                                 })))?;
         if x.is_finite() {
@@ -124,40 +91,19 @@ NumLit : ast::NumLit = {
                 parse_error::ParseError::NumLit(
                     NumLitParseError::NumberIsNotFinite(
                         NumberIsNotFiniteParseError {
-                            token : <>.to_owned(),
-                            })))?
-        }
-    },
-    r"0[xX]\.[0-9a-fA-F]+[pP][+-]?[0-9]+" =>? {
-        let x = 
-            hexf_parse::parse_hexf64(<>, false)
-                .map_err(|source|
-                        parse_error::ParseError::NumLit(
-                            NumLitParseError::HexadecimalFloatingPointLiteral(
-                                HexadecimalFloatingPointLiteralParseError {
-                                    token : <>.to_owned(),
-                                    source : source.into(),
-                                })))?;
-        if x.is_finite() {
-            Ok(ast::NumLit(x))
-        } else {
-            Err(
-                parse_error::ParseError::NumLit(
-                    NumLitParseError::NumberIsNotFinite(
-                        NumberIsNotFiniteParseError {
-                            token : <>.to_owned(),
+                            token : <>.into(),
                             })))?
         }
     },
 
-    r"[0-9]+" =>? {
+    INTEGER =>? {
         let x = 
             f64::from_str(<>)
                 .map_err(|source| 
                          parse_error::ParseError::NumLit(
                             NumLitParseError::IntegerLiteral(
                                 IntegerLiteralParseError {
-                                    token : <>.to_owned(),
+                                    token : <>.into(),
                                     source : source.into(),
                                 })))?;
         if x.is_finite() {
@@ -167,14 +113,14 @@ NumLit : ast::NumLit = {
                 parse_error::ParseError::NumLit(
                     NumLitParseError::NumberIsNotFinite(
                         NumberIsNotFiniteParseError {
-                            token : <>.to_owned(),
+                            token : <>.into(),
                             })))?
         }
     },
 }
 
 StrLit : ast::StrLit = {
-    r#""[ -!#-\[\]-~\\]*""# => ast::StrLit::from_raw(<>),
+    STRING => ast::StrLit::from_raw(<>),
 }
 
 Lit : ast::Lit = {
@@ -182,6 +128,10 @@ Lit : ast::Lit = {
     BoolLit => ast::Lit::Bool(<>),
     NumLit => ast::Lit::Num(<>),
     StrLit => ast::Lit::Str(<>),
+}
+
+Var : ast::Var = {
+    IDENTIFIER => ast::Var(<>.into()),
 }
 
 UnOp : ast::UnOp = {
@@ -242,6 +192,7 @@ UnExpr : ast::Expr = {
 
 PrimExpr : ast::Expr = {
     Lit => ast::Expr::Lit(<>),
+    Var => ast::Expr::Var(<>),
     "(" <Expr> ")" => <>
 }
 
@@ -254,10 +205,19 @@ Stmt : ast::Stmt = {
     PrintStmt => ast::Stmt::Print(<>),
 }
 
+VarDecl : ast::VarDecl = {
+    VAR_KEYWORD <var:Var> <init:("=" <Expr>)?> ";" => ast::VarDecl { var , init },
+}
+
+DeclStmt : ast::Stmt = {
+    VarDecl => ast::Stmt::VarDecl(<>),
+    Stmt => <>
+}
+
 ExprStmt : ast::ExprStmt = {
     <Expr> ";" => ast::ExprStmt(<>),
 }
 
 PrintStmt : ast::PrintStmt = {
-    "print" <Expr> ";" => ast::PrintStmt(<>),
+    PRINT_KEYWORD <Expr> ";" => ast::PrintStmt(<>),
 }

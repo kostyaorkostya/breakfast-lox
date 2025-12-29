@@ -2,7 +2,7 @@ use super::Value;
 use super::{ArithmeticError, InvalidOperandTypeError, RuntimeError, Stringify, Truthy};
 use crate::ast::{
     AddOp, BinExpr, BinOp, CmpOp, EqOp, Expr, ExprStmt, Lit, MulOp, PrintStmt, Prog, RelOp, Stmt,
-    UnExpr, UnOp,
+    UnExpr, UnOp, Var, VarDecl,
 };
 use std::io;
 
@@ -105,6 +105,10 @@ impl Interpreter {
         }
     }
 
+    fn eval_var(&self, _var: &Var) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::Unimplemented)?
+    }
+
     pub(super) fn eval_expr(&self, expr: &Expr) -> Result<Value, RuntimeError> {
         match expr {
             Expr::Lit(lit) => Ok(match lit {
@@ -115,6 +119,18 @@ impl Interpreter {
             }),
             Expr::Un(UnExpr { op, e }) => self.eval_un_expr(op, e),
             Expr::Bin(BinExpr { op, l, r }) => self.eval_bin_expr(op, l, r),
+            Expr::Var(x) => self.eval_var(x),
+        }
+    }
+
+    fn eval_var_decl(&self, var_decl: &VarDecl) -> Result<(), RuntimeError> {
+        let VarDecl { var: _, init } = var_decl;
+        match init {
+            None => Err(RuntimeError::Unimplemented)?,
+            Some(init) => {
+                let _init = self.eval_expr(init)?;
+                Err(RuntimeError::Unimplemented)?
+            }
         }
     }
 
@@ -132,6 +148,7 @@ impl Interpreter {
                 writeln!(self.output, "{}", x.display())?;
                 Ok(())
             }
+            Stmt::VarDecl(x) => self.eval_var_decl(x),
         }
     }
 

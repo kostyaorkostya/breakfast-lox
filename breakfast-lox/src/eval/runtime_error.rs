@@ -35,4 +35,6 @@ pub enum RuntimeError {
     Arithmetic(#[from] ArithmeticError),
     #[error("IO error; {0}")]
     InputOutput(#[from] io::Error),
+    #[error("unimplemented")]
+    Unimplemented,
 }

@@ -36,6 +36,9 @@ pub enum Lit {
 }
 
 #[derive(Debug)]
+pub struct Var(pub String);
+
+#[derive(Debug)]
 pub enum UnOp {
     /// Negation (`-`)
     Neg,
@@ -110,6 +113,13 @@ pub enum Expr {
     Lit(Lit),
     Un(UnExpr),
     Bin(BinExpr),
+    Var(Var),
+}
+
+#[derive(Debug)]
+pub struct VarDecl {
+    pub var: Var,
+    pub init: Option<Expr>,
 }
 
 #[derive(Debug)]
@@ -122,6 +132,7 @@ pub struct ExprStmt(pub Expr);
 pub enum Stmt {
     Expr(ExprStmt),
     Print(PrintStmt),
+    VarDecl(VarDecl),
 }
 
 #[derive(Debug)]
@@ -193,6 +204,13 @@ impl Pretty for Lit {
             Self::Num(x) => x.pretty(f),
             Self::Str(x) => x.pretty(f),
         }
+    }
+}
+
+impl Pretty for Var {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(x) = self;
+        write!(f, "{}", x)
     }
 }
 
@@ -282,6 +300,17 @@ impl Pretty for Expr {
             Self::Lit(x) => x.pretty(f),
             Self::Un(x) => x.pretty(f),
             Self::Bin(x) => x.pretty(f),
+            Self::Var(x) => x.pretty(f),
+        }
+    }
+}
+
+impl Pretty for VarDecl {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { var, init } = self;
+        match init {
+            Some(init) => writeln!(f, "var {} = {};", var.display(), init.display()),
+            None => writeln!(f, "var {};", var.display()),
         }
     }
 }
@@ -289,14 +318,14 @@ impl Pretty for Expr {
 impl Pretty for PrintStmt {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(x) = self;
-        write!(f, "print {};\n", x.display())
+        writeln!(f, "print {};", x.display())
     }
 }
 
 impl Pretty for ExprStmt {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(x) = self;
-        write!(f, "{};\n", x.display())
+        writeln!(f, "{};", x.display())
     }
 }
 
@@ -305,6 +334,7 @@ impl Pretty for Stmt {
         match self {
             Self::Expr(x) => x.pretty(f),
             Self::Print(x) => x.pretty(f),
+            Self::VarDecl(x) => x.pretty(f),
         }
     }
 }
