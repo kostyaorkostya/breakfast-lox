@@ -2,14 +2,14 @@ use super::{Stringify, Truthy};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum Value {
+pub enum Val {
     Nil,
     Bool(bool),
     Num(f64),
     Str(String),
 }
 
-impl Stringify for Value {
+impl Stringify for Val {
     fn stringify(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Nil => write!(f, "nil"),
@@ -21,7 +21,7 @@ impl Stringify for Value {
 }
 
 // https://craftinginterpreters.com/evaluating-expressions.html#truthiness-and-falsiness
-impl Truthy for Value {
+impl Truthy for Val {
     fn truthy(&self) -> bool {
         match self {
             Self::Nil => false,

@@ -1,9 +1,9 @@
-use super::{Interpreter, Value};
+use super::{Interpreter, Val};
 use crate::grammar::{ExprParser, ProgParser};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-fn parse_and_eval_expr(expr: &str) -> anyhow::Result<Value> {
+fn parse_and_eval_expr(expr: &str) -> anyhow::Result<Val> {
     let expr = ExprParser::new()
         .parse(expr)
         .map_err(|e| e.map_token(|t| format!("{t:?}")))?;
@@ -208,33 +208,33 @@ mod prog {
 }
 
 mod stringify {
-    use super::super::{Stringify, Value};
+    use super::super::{Stringify, Val};
     use expect_test::expect;
 
     #[test]
     fn test_nil() -> anyhow::Result<()> {
-        let actual = Value::Nil.display().to_string();
+        let actual = Val::Nil.display().to_string();
         expect!["nil"].assert_eq(&actual);
         Ok(())
     }
 
     #[test]
     fn test_bool() -> anyhow::Result<()> {
-        let actual = Value::Bool(true).display().to_string();
+        let actual = Val::Bool(true).display().to_string();
         expect!["true"].assert_eq(&actual);
         Ok(())
     }
 
     #[test]
     fn test_num() -> anyhow::Result<()> {
-        let actual = Value::Num(33f64).display().to_string();
+        let actual = Val::Num(33f64).display().to_string();
         expect!["33"].assert_eq(&actual);
         Ok(())
     }
 
     #[test]
     fn test_str() -> anyhow::Result<()> {
-        let actual = Value::Str("hello".into()).display().to_string();
+        let actual = Val::Str("hello".into()).display().to_string();
         expect!["hello"].assert_eq(&actual);
         Ok(())
     }

@@ -4,8 +4,8 @@ pub use runtime_error::{ArithmeticError, InvalidOperandTypeError, RuntimeError};
 mod interpreter;
 pub use interpreter::Interpreter;
 
-mod value;
-pub use value::Value;
+mod val;
+pub use val::Val;
 
 mod stringify;
 use stringify::Stringify;
