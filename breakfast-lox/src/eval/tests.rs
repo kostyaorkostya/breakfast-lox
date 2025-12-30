@@ -37,6 +37,8 @@ mod bool_literals {
 }
 
 mod prog {
+    use std::any;
+
     use super::parse_and_eval_prog;
     use expect_test::expect;
 
@@ -180,7 +182,8 @@ mod prog {
                     "x",
                 ),
             )
-        "#]].assert_debug_eq(&actual);
+        "#]]
+        .assert_debug_eq(&actual);
         Ok(())
     }
 
@@ -220,6 +223,25 @@ mod prog {
             global a
             global b
             global c
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_referencing_var_with_the_same_name_in_init() -> anyhow::Result<()> {
+        // Challenge 3 https://craftinginterpreters.com/statements-and-state.html#challenges
+        let actual = parse_and_eval_prog(
+            r#"
+            var a = 1;
+            {
+              var a = a + 2;
+              print a;
+            }
+        "#,
+        )?;
+        expect![[r#"
+            3
         "#]]
         .assert_eq(&actual);
         Ok(())
