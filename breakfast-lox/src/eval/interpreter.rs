@@ -137,6 +137,12 @@ impl Interpreter {
         Ok(())
     }
 
+    fn eval_assign(&mut self, assign: &ast::Assign) -> Result<(), RuntimeError> {
+        let ast::Assign { name, val } = assign;
+        let val = self.eval_expr(val)?;
+        Ok(self.env.assign(name, val)?)
+    }
+
     fn eval_stmt(&mut self, stmt: &ast::Stmt) -> Result<(), RuntimeError> {
         match stmt {
             ast::Stmt::Expr(ast::ExprStmt(x)) => {
@@ -152,6 +158,7 @@ impl Interpreter {
                 Ok(())
             }
             ast::Stmt::VarDecl(x) => self.eval_var_decl(x),
+            ast::Stmt::Assign(x) => self.eval_assign(x),
         }
     }
 

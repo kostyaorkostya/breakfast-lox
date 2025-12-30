@@ -41,6 +41,14 @@ mod prog {
     use expect_test::expect;
 
     #[test]
+    fn test_empty() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(r#""#)?;
+        expect![""]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
     fn test_hello_world() -> anyhow::Result<()> {
         let actual = parse_and_eval_prog(
             r#"

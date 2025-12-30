@@ -124,6 +124,12 @@ pub struct VarDecl {
 }
 
 #[derive(Debug)]
+pub struct Assign {
+    pub name: VarName,
+    pub val: Expr,
+}
+
+#[derive(Debug)]
 pub struct PrintStmt(pub Expr);
 
 #[derive(Debug)]
@@ -134,6 +140,7 @@ pub enum Stmt {
     Expr(ExprStmt),
     Print(PrintStmt),
     VarDecl(VarDecl),
+    Assign(Assign),
 }
 
 #[derive(Debug)]
@@ -315,6 +322,13 @@ impl Pretty for VarDecl {
     }
 }
 
+impl Pretty for Assign {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { name, val } = self;
+        writeln!(f, "{} = {};", name.display(), val.display())
+    }
+}
+
 impl Pretty for PrintStmt {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(x) = self;
@@ -335,6 +349,7 @@ impl Pretty for Stmt {
             Self::Expr(x) => x.pretty(f),
             Self::Print(x) => x.pretty(f),
             Self::VarDecl(x) => x.pretty(f),
+            Self::Assign(x) => x.pretty(f),
         }
     }
 }

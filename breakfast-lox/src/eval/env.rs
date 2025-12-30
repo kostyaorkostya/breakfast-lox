@@ -3,14 +3,16 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-#[error("undefined variable '{name}'")]
-pub struct UndefinedVariableError {
-    pub name: VarName,
+pub enum UndefinedVariableError {
+    #[error("undefined variable '{0}'")]
+    Undefined(String),
+    #[error("cannot assign to undefined variable '{0}'")]
+    AssignToUndefined(String),
 }
 
 #[derive(Debug, Default)]
 pub struct Env {
-    values: HashMap<String, Value>,
+    bindings: HashMap<String, Value>,
 }
 
 impl Env {
@@ -18,16 +20,24 @@ impl Env {
         Self::default()
     }
 
-    pub fn define(&mut self, name: VarName, value: Value) {
-        self.values.insert(name.into_inner(), value);
+    pub fn define(&mut self, name: VarName, val: Value) {
+        self.bindings.insert(name.into_inner(), val);
+    }
+
+    pub fn assign(&mut self, name: &str, val: Value) -> Result<(), UndefinedVariableError> {
+        match self.bindings.get_mut(name) {
+            None => Err(UndefinedVariableError::AssignToUndefined(name.to_owned())),
+            Some(slot) => {
+                *slot = val;
+                Ok(())
+            }
+        }
     }
 
     pub fn get(&self, name: &str) -> Result<Value, UndefinedVariableError> {
-        self.values
+        self.bindings
             .get(name)
             .cloned()
-            .ok_or_else(|| UndefinedVariableError {
-                name: VarName::new(name.to_string()),
-            })
+            .ok_or_else(|| UndefinedVariableError::Undefined(name.to_owned()))
     }
 }
