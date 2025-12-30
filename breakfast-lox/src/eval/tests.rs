@@ -80,6 +80,44 @@ mod prog {
     }
 
     #[test]
+    fn test_referencing_unknown_variable() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            unknown_variable;
+        "#,
+        )
+        .unwrap_err();
+        expect![[r#"
+            UndefinedVariable(
+                Undefined(
+                    "unknown_variable",
+                ),
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_assigning_unknown_variable() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            unknown_variable = "bad";
+        "#,
+        )
+        .unwrap_err();
+        expect![[r#"
+            UndefinedVariable(
+                AssignToUndefined(
+                    "unknown_variable",
+                ),
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
     fn test_global_variable_assignment() -> anyhow::Result<()> {
         let actual = parse_and_eval_prog(
             r#"
@@ -90,6 +128,40 @@ mod prog {
         )?;
         expect![[r#"
             Hello world!
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_variable_reassignment() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var msg = "Initial value";
+            msg = "reassigning";
+            msg = "Hello world!";
+            print msg;
+        "#,
+        )?;
+        expect![[r#"
+            Hello world!
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_assignment_returns_rvalue() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var msg = "Initial value";
+            print (msg = "Hello, world!");
+            print msg;
+        "#,
+        )?;
+        expect![[r#"
+            Hello, world!
+            Hello, world!
         "#]]
         .assert_eq(&actual);
         Ok(())
