@@ -141,7 +141,11 @@ pub enum Stmt {
     Expr(ExprStmt),
     Print(PrintStmt),
     VarDecl(VarDecl),
+    Block(Box<Block>),
 }
+
+#[derive(Debug)]
+pub struct Block(pub Vec<Stmt>);
 
 #[derive(Debug)]
 pub struct Prog(pub Vec<Stmt>);
@@ -350,7 +354,20 @@ impl Pretty for Stmt {
             Self::Expr(x) => x.pretty(f),
             Self::Print(x) => x.pretty(f),
             Self::VarDecl(x) => x.pretty(f),
+            Self::Block(x) => x.pretty(f),
         }
+    }
+}
+
+impl Pretty for Block {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(xs) = self;
+        for x in xs {
+            writeln!(f, "{{")?;
+            x.pretty(f)?;
+            writeln!(f, "}}")?
+        }
+        Ok(())
     }
 }
 

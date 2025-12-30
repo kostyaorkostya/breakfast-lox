@@ -24,9 +24,11 @@ match {
     // in the AST (2) a decision must be made on where to attach comments. This will be required to
     // implement a formatter.
     r"/\*[^*]*\*+([^/*][^*]*\*+)*/" => {},
-    "nil" => NIL,
+    "nil" => NIL_KEYWORD,
     "print" => PRINT_KEYWORD,
     "var" => VAR_KEYWORD,
+    "true" => TRUE_KEYWORD,
+    "false" => FALSE_KEYWORD,
     r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENTIFIER,
     // Decimal and hexademical floating constants as per ISO/IEC 9899:1999 §6.4.4.2
     r"[0-9]+\.([0-9]+)?([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+|\.[0-9]+([eE][+-]?[0-9]+)?" => DEC_FLOAT,
@@ -37,12 +39,12 @@ match {
 }
 
 NilLit : ast::NilLit = {
-    NIL => ast::NilLit,
+    NIL_KEYWORD => ast::NilLit,
 }
 
 BoolLit : ast::BoolLit = {
-    "true" => ast::BoolLit(true),
-    "false" => ast::BoolLit(false),
+    TRUE_KEYWORD => ast::BoolLit(true),
+    FALSE_KEYWORD => ast::BoolLit(false),
 }
 
 // TODO(kostya): These [is_finite] checks don't actually work in practice, there should be a better
@@ -206,15 +208,21 @@ pub Prog : ast::Prog = {
 Stmt : ast::Stmt = {
     ExprStmt => ast::Stmt::Expr(<>),
     PrintStmt => ast::Stmt::Print(<>),
+    Block => ast::Stmt::Block(Box::new(<>)),
 }
 
 VarDecl : ast::VarDecl = {
     VAR_KEYWORD <name:VarName> <init:("=" <Expr>)?> ";" => ast::VarDecl { name , init },
 }
 
+
 DeclStmt : ast::Stmt = {
     VarDecl => ast::Stmt::VarDecl(<>),
     Stmt => <>
+}
+
+Block : ast::Block = {
+    "{" <DeclStmt*> "}" => ast::Block(<>),
 }
 
 ExprStmt : ast::ExprStmt = {

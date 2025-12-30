@@ -196,4 +196,228 @@ mod prog {
         .assert_debug_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_block() -> anyhow::Result<()> {
+        let actual = ProgParser::new().parse(
+            r#"
+            var a = "global a";
+            var b = "global b";
+            var c = "global c";
+            {
+              var a = "outer a";
+              var b = "outer b";
+              {
+                var a = "inner a";
+                print a;
+                print b;
+                print c;
+              }
+              print a;
+              print b;
+              print c;
+            }
+            print a;
+            print b;
+            print c;
+        "#,
+        )?;
+        expect![[r#"
+            Prog(
+                [
+                    VarDecl(
+                        VarDecl {
+                            name: VarName(
+                                "a",
+                            ),
+                            init: Some(
+                                Lit(
+                                    Str(
+                                        StrLit(
+                                            "global a",
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        },
+                    ),
+                    VarDecl(
+                        VarDecl {
+                            name: VarName(
+                                "b",
+                            ),
+                            init: Some(
+                                Lit(
+                                    Str(
+                                        StrLit(
+                                            "global b",
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        },
+                    ),
+                    VarDecl(
+                        VarDecl {
+                            name: VarName(
+                                "c",
+                            ),
+                            init: Some(
+                                Lit(
+                                    Str(
+                                        StrLit(
+                                            "global c",
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        },
+                    ),
+                    Block(
+                        Block(
+                            [
+                                VarDecl(
+                                    VarDecl {
+                                        name: VarName(
+                                            "a",
+                                        ),
+                                        init: Some(
+                                            Lit(
+                                                Str(
+                                                    StrLit(
+                                                        "outer a",
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    },
+                                ),
+                                VarDecl(
+                                    VarDecl {
+                                        name: VarName(
+                                            "b",
+                                        ),
+                                        init: Some(
+                                            Lit(
+                                                Str(
+                                                    StrLit(
+                                                        "outer b",
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    },
+                                ),
+                                Block(
+                                    Block(
+                                        [
+                                            VarDecl(
+                                                VarDecl {
+                                                    name: VarName(
+                                                        "a",
+                                                    ),
+                                                    init: Some(
+                                                        Lit(
+                                                            Str(
+                                                                StrLit(
+                                                                    "inner a",
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                            Print(
+                                                PrintStmt(
+                                                    Var(
+                                                        VarName(
+                                                            "a",
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                            Print(
+                                                PrintStmt(
+                                                    Var(
+                                                        VarName(
+                                                            "b",
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                            Print(
+                                                PrintStmt(
+                                                    Var(
+                                                        VarName(
+                                                            "c",
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ],
+                                    ),
+                                ),
+                                Print(
+                                    PrintStmt(
+                                        Var(
+                                            VarName(
+                                                "a",
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                Print(
+                                    PrintStmt(
+                                        Var(
+                                            VarName(
+                                                "b",
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                Print(
+                                    PrintStmt(
+                                        Var(
+                                            VarName(
+                                                "c",
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                    Print(
+                        PrintStmt(
+                            Var(
+                                VarName(
+                                    "a",
+                                ),
+                            ),
+                        ),
+                    ),
+                    Print(
+                        PrintStmt(
+                            Var(
+                                VarName(
+                                    "b",
+                                ),
+                            ),
+                        ),
+                    ),
+                    Print(
+                        PrintStmt(
+                            Var(
+                                VarName(
+                                    "c",
+                                ),
+                            ),
+                        ),
+                    ),
+                ],
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
 }

@@ -37,8 +37,6 @@ mod bool_literals {
 }
 
 mod prog {
-    use std::any;
-
     use super::parse_and_eval_prog;
     use expect_test::expect;
 
@@ -162,6 +160,47 @@ mod prog {
         expect![[r#"
             Hello, world!
             Hello, world!
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_block_eval() -> anyhow::Result<()> {
+        // example from https://craftinginterpreters.com/statements-and-state.html#block-syntax-and-semantics
+        let actual = parse_and_eval_prog(
+            r#"
+            var a = "global a";
+            var b = "global b";
+            var c = "global c";
+            {
+              var a = "outer a";
+              var b = "outer b";
+              {
+                var a = "inner a";
+                print a;
+                print b;
+                print c;
+              }
+              print a;
+              print b;
+              print c;
+            }
+            print a;
+            print b;
+            print c;
+        "#,
+        )?;
+        expect![[r#"
+            inner a
+            outer b
+            global c
+            outer a
+            outer b
+            global c
+            global a
+            global b
+            global c
         "#]]
         .assert_eq(&actual);
         Ok(())
