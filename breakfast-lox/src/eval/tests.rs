@@ -166,6 +166,25 @@ mod prog {
     }
 
     #[test]
+    fn test_uninitialized_variable_access() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var x;
+            x;
+        "#,
+        )
+        .unwrap_err();
+        expect![[r#"
+            UndefinedVariable(
+                AccessUninitialized(
+                    "x",
+                ),
+            )
+        "#]].assert_debug_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
     fn test_block_eval() -> anyhow::Result<()> {
         // example from https://craftinginterpreters.com/statements-and-state.html#block-syntax-and-semantics
         let actual = parse_and_eval_prog(

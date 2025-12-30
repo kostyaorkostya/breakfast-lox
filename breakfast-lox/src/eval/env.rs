@@ -10,13 +10,15 @@ pub enum UndefinedVariableError {
     Undefined(String),
     #[error("cannot assign to undefined variable '{0}'")]
     AssignToUndefined(String),
+    #[error("variable '{0}' used before initialization")]
+    AccessUninitialized(String),
 }
 
 #[derive(Debug, Default)]
 struct Inner {
     // TODO(kostya): Once `Val` supports closures, `Env`s might form a loop that will leak.
     enclosing: Option<Rc<RefCell<Inner>>>,
-    bindings: HashMap<String, Val>,
+    bindings: HashMap<String, Option<Val>>,
 }
 
 impl Inner {
@@ -31,14 +33,18 @@ impl Inner {
         }))
     }
 
+    pub fn declare(&mut self, name: VarName) {
+        self.bindings.insert(name.into_inner(), None);
+    }
+
     pub fn define(&mut self, name: VarName, val: Val) {
-        self.bindings.insert(name.into_inner(), val);
+        self.bindings.insert(name.into_inner(), Some(val));
     }
 
     pub fn assign(&mut self, name: &str, val: Val) -> Result<(), UndefinedVariableError> {
         match self.bindings.get_mut(name) {
             Some(slot) => {
-                *slot = val;
+                *slot = Some(val);
                 Ok(())
             }
             None => match &self.enclosing {
@@ -50,7 +56,8 @@ impl Inner {
 
     pub fn get(&self, name: &str) -> Result<Val, UndefinedVariableError> {
         match self.bindings.get(name).cloned() {
-            Some(x) => Ok(x),
+            Some(Some(x)) => Ok(x),
+            Some(None) => Err(UndefinedVariableError::AccessUninitialized(name.to_owned())),
             None => match &self.enclosing {
                 None => Err(UndefinedVariableError::Undefined(name.to_owned())),
                 Some(env) => env.borrow_mut().get(name),
@@ -69,6 +76,10 @@ impl Env {
 
     pub fn extend(&self) -> Self {
         Self(Inner::extend(&self.0))
+    }
+
+    pub fn declare(&mut self, name: VarName) {
+        self.0.borrow_mut().declare(name);
     }
 
     pub fn define(&mut self, name: VarName, val: Val) {

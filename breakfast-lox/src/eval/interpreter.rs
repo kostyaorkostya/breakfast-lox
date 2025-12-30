@@ -115,7 +115,10 @@ fn eval_var_decl(
 ) -> Result<(), RuntimeError> {
     let ast::VarDecl { name, init } = var_decl;
     match init {
-        None => env.define(VarName::new((**name).clone()), Val::Nil),
+        None => {
+            // Challenge 2 from https://craftinginterpreters.com/statements-and-state.html#challenges
+            env.declare(VarName::new((**name).clone()))
+        }
         Some(init) => {
             let init = eval_expr(env, out, init)?;
             env.define(VarName::new((**name).clone()), init)
