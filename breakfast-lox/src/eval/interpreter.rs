@@ -44,7 +44,7 @@ impl Interpreter {
     }
 
     pub(super) fn eval_un_expr(
-        &self,
+        &mut self,
         op: &ast::UnOp,
         e: &ast::Expr,
     ) -> Result<Value, RuntimeError> {
@@ -61,7 +61,7 @@ impl Interpreter {
     }
 
     pub(super) fn eval_bin_expr(
-        &self,
+        &mut self,
         op: &ast::BinOp,
         l: &ast::Expr,
         r: &ast::Expr,
@@ -111,7 +111,14 @@ impl Interpreter {
         }
     }
 
-    pub(super) fn eval_expr(&self, expr: &ast::Expr) -> Result<Value, RuntimeError> {
+    fn eval_assign(&mut self, assign: &ast::Assign) -> Result<Value, RuntimeError> {
+        let ast::Assign { name, val } = assign;
+        let val = self.eval_expr(val)?;
+        self.env.assign(name, val.clone())?;
+        Ok(val)
+    }
+
+    pub(super) fn eval_expr(&mut self, expr: &ast::Expr) -> Result<Value, RuntimeError> {
         match expr {
             ast::Expr::Lit(lit) => Ok(match lit {
                 ast::Lit::Nil(_) => Value::Nil,
@@ -122,6 +129,7 @@ impl Interpreter {
             ast::Expr::Un(ast::UnExpr { op, e }) => self.eval_un_expr(op, e),
             ast::Expr::Bin(ast::BinExpr { op, l, r }) => self.eval_bin_expr(op, l, r),
             ast::Expr::Var(x) => Ok(self.env.get(&**x)?),
+            ast::Expr::Assign(x) => self.eval_assign(x),
         }
     }
 
@@ -135,12 +143,6 @@ impl Interpreter {
             }
         }
         Ok(())
-    }
-
-    fn eval_assign(&mut self, assign: &ast::Assign) -> Result<(), RuntimeError> {
-        let ast::Assign { name, val } = assign;
-        let val = self.eval_expr(val)?;
-        Ok(self.env.assign(name, val)?)
     }
 
     fn eval_stmt(&mut self, stmt: &ast::Stmt) -> Result<(), RuntimeError> {
@@ -158,7 +160,6 @@ impl Interpreter {
                 Ok(())
             }
             ast::Stmt::VarDecl(x) => self.eval_var_decl(x),
-            ast::Stmt::Assign(x) => self.eval_assign(x),
         }
     }
 

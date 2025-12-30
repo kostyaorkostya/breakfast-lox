@@ -110,23 +110,24 @@ pub struct BinExpr {
 }
 
 #[derive(Debug)]
+pub struct Assign {
+    pub name: VarName,
+    pub val: Box<Expr>,
+}
+
+#[derive(Debug)]
 pub enum Expr {
     Lit(Lit),
     Un(UnExpr),
     Bin(BinExpr),
     Var(VarName),
+    Assign(Assign),
 }
 
 #[derive(Debug)]
 pub struct VarDecl {
     pub name: VarName,
     pub init: Option<Expr>,
-}
-
-#[derive(Debug)]
-pub struct Assign {
-    pub name: VarName,
-    pub val: Expr,
 }
 
 #[derive(Debug)]
@@ -140,7 +141,6 @@ pub enum Stmt {
     Expr(ExprStmt),
     Print(PrintStmt),
     VarDecl(VarDecl),
-    Assign(Assign),
 }
 
 #[derive(Debug)]
@@ -308,6 +308,7 @@ impl Pretty for Expr {
             Self::Un(x) => x.pretty(f),
             Self::Bin(x) => x.pretty(f),
             Self::Var(x) => x.pretty(f),
+            Self::Assign(x) => x.pretty(f),
         }
     }
 }
@@ -349,7 +350,6 @@ impl Pretty for Stmt {
             Self::Expr(x) => x.pretty(f),
             Self::Print(x) => x.pretty(f),
             Self::VarDecl(x) => x.pretty(f),
-            Self::Assign(x) => x.pretty(f),
         }
     }
 }

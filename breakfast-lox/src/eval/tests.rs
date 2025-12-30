@@ -37,14 +37,15 @@ mod bool_literals {
 }
 
 mod prog {
+    use std::any;
+
     use super::parse_and_eval_prog;
     use expect_test::expect;
 
     #[test]
     fn test_empty() -> anyhow::Result<()> {
         let actual = parse_and_eval_prog(r#""#)?;
-        expect![""]
-        .assert_eq(&actual);
+        expect![""].assert_eq(&actual);
         Ok(())
     }
 
@@ -73,6 +74,22 @@ mod prog {
         )?;
         expect![[r#"
             Hello, world!
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_variable_assignment() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var msg = "Initial value";
+            msg = "Hello world!";
+            print msg;
+        "#,
+        )?;
+        expect![[r#"
+            Hello world!
         "#]]
         .assert_eq(&actual);
         Ok(())

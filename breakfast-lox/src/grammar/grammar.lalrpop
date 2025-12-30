@@ -162,7 +162,12 @@ MulOp : ast::MulOp = {
 }
 
 pub Expr : ast::Expr = {
+    Assign => ast::Expr::Assign(<>),
     EqExpr => <>
+}
+
+Assign : ast::Assign = {
+    <name:VarName> "=" <val:Expr> => ast::Assign { name , val : Box::new(val) },
 }
 
 EqExpr : ast::Expr = {
