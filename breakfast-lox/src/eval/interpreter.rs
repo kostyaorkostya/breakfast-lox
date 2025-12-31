@@ -140,6 +140,17 @@ fn eval_block(
     Ok(())
 }
 
+fn eval_if(env: &mut Env, out: &mut dyn io::Write, if_: &ast::IfStmt) -> Result<(), RuntimeError> {
+    let ast::IfStmt { cond, then, else_ } = if_;
+    if eval_expr(env, out, cond)?.truthy() {
+        eval_stmt(env, out, then)
+    } else if let Some(else_) = else_ {
+        eval_stmt(env, out, else_)
+    } else {
+        Ok(())
+    }
+}
+
 fn eval_stmt(env: &mut Env, out: &mut dyn io::Write, stmt: &ast::Stmt) -> Result<(), RuntimeError> {
     match stmt {
         ast::Stmt::Expr(ast::ExprStmt(x)) => {
@@ -156,6 +167,7 @@ fn eval_stmt(env: &mut Env, out: &mut dyn io::Write, stmt: &ast::Stmt) -> Result
         }
         ast::Stmt::VarDecl(x) => eval_var_decl(env, out, x),
         ast::Stmt::Block(x) => eval_block(env, out, x),
+        ast::Stmt::If(x) => eval_if(env, out, x),
     }
 }
 

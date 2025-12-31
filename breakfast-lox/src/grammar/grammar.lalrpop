@@ -24,11 +24,13 @@ match {
     // in the AST (2) a decision must be made on where to attach comments. This will be required to
     // implement a formatter.
     r"/\*[^*]*\*+([^/*][^*]*\*+)*/" => {},
-    "nil" => NIL_KEYWORD,
-    "print" => PRINT_KEYWORD,
-    "var" => VAR_KEYWORD,
-    "true" => TRUE_KEYWORD,
-    "false" => FALSE_KEYWORD,
+    "nil" => KWRD_NIL,
+    "print" => KWRD_PRINT,
+    "var" => KWRD_VAR,
+    "true" => KWRD_TRUE,
+    "false" => KWRD_FALSE,
+    "if" => KWRD_IF,
+    "else" => KWRD_ELSE,
     r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENTIFIER,
     // Decimal and hexademical floating constants as per ISO/IEC 9899:1999 §6.4.4.2
     r"[0-9]+\.([0-9]+)?([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+|\.[0-9]+([eE][+-]?[0-9]+)?" => DEC_FLOAT,
@@ -39,18 +41,17 @@ match {
 }
 
 NilLit : ast::NilLit = {
-    NIL_KEYWORD => ast::NilLit,
+    KWRD_NIL => ast::NilLit,
 }
 
 BoolLit : ast::BoolLit = {
-    TRUE_KEYWORD => ast::BoolLit(true),
-    FALSE_KEYWORD => ast::BoolLit(false),
+    KWRD_TRUE => ast::BoolLit(true),
+    KWRD_FALSE => ast::BoolLit(false),
 }
 
 // TODO(kostya): These [is_finite] checks don't actually work in practice, there should be a better
 // way of doing it. 
 NumLit : ast::NumLit = {
-
     DEC_FLOAT =>? {
         let x = 
             f64::from_str(<>)
@@ -72,8 +73,6 @@ NumLit : ast::NumLit = {
                             })))?
         }
     },
-
-    // Hexadecimal floating constants
     HEX_FLOAT =>? {
         let x = 
             hexf_parse::parse_hexf64(<>, false)
@@ -95,7 +94,6 @@ NumLit : ast::NumLit = {
                             })))?
         }
     },
-
     INTEGER =>? {
         let x = 
             f64::from_str(<>)
@@ -163,7 +161,7 @@ MulOp : ast::MulOp = {
 
 pub Expr : ast::Expr = {
     Assign => ast::Expr::Assign(<>),
-    EqExpr => <>
+    EqExpr,
 }
 
 Assign : ast::Assign = {
@@ -171,22 +169,42 @@ Assign : ast::Assign = {
 }
 
 EqExpr : ast::Expr = {
-    <l:EqExpr> <op:EqOp> <r:CmpExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Rel(ast::RelOp::Eq(op)), l : Box::new(l), r : Box::new(r) }),
+    <l:EqExpr> <op:EqOp> <r:CmpExpr> => {
+        let op = ast::BinOp::Rel(ast::RelOp::Eq(op));
+        let l = Box::new(l);
+        let r = Box::new(r);
+        ast::Expr::Bin(ast::BinExpr { op, l, r })
+    },
     CmpExpr 
 }
 
 CmpExpr : ast::Expr = {
-    <l:TermExpr> <op:CmpOp> <r:CmpExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Rel(ast::RelOp::Cmp(op)), l : Box::new(l), r : Box::new(r) }),
+    <l:TermExpr> <op:CmpOp> <r:CmpExpr> => {
+        let op = ast::BinOp::Rel(ast::RelOp::Cmp(op));
+        let l = Box::new(l);
+        let r = Box::new(r);
+        ast::Expr::Bin(ast::BinExpr { op, l, r })
+    },
     TermExpr 
 }
 
 TermExpr : ast::Expr = {
-    <l:FactorExpr> <op:AddOp> <r:TermExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Add(op), l : Box::new(l), r : Box::new(r) }),
+    <l:FactorExpr> <op:AddOp> <r:TermExpr> => {
+        let op = ast::BinOp::Add(op);
+        let l = Box::new(l);
+        let r = Box::new(r);
+        ast::Expr::Bin(ast::BinExpr { op, l, r})
+    },
     FactorExpr 
 }
 
 FactorExpr : ast::Expr = {
-    <l:UnExpr> <op:MulOp> <r:FactorExpr> => ast::Expr::Bin(ast::BinExpr { op : ast::BinOp::Mul(op), l : Box::new(l), r : Box::new(r) }),
+    <l:UnExpr> <op:MulOp> <r:FactorExpr> => {
+        let op = ast::BinOp::Mul(op);
+        let l = Box::new(l);
+        let r = Box::new(r);
+        ast::Expr::Bin(ast::BinExpr { op, l, r })
+    },
     UnExpr
 }
 
@@ -198,7 +216,7 @@ UnExpr : ast::Expr = {
 PrimExpr : ast::Expr = {
     Lit => ast::Expr::Lit(<>),
     VarName => ast::Expr::Var(<>),
-    "(" <Expr> ")" => <>
+    "(" <Expr> ")"
 }
 
 pub Prog : ast::Prog = {
@@ -206,19 +224,37 @@ pub Prog : ast::Prog = {
 }
 
 Stmt : ast::Stmt = {
+    MatchedStmt,
+    UnmatchedStmt,
+}
+
+NonIfStmt : ast::Stmt = {
     ExprStmt => ast::Stmt::Expr(<>),
     PrintStmt => ast::Stmt::Print(<>),
     Block => ast::Stmt::Block(Box::new(<>)),
 }
 
+MatchedStmt : ast::Stmt = { 
+    NonIfStmt,
+    KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:MatchedStmt> =>
+        ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: Some(else_) })),
+}
+
+UnmatchedStmt : ast::Stmt = {
+    KWRD_IF "(" <cond:Expr> ")" <then:Stmt> =>
+        ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: None })),
+    KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:UnmatchedStmt> =>
+        ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: Some(else_) })),
+}
+
 VarDecl : ast::VarDecl = {
-    VAR_KEYWORD <name:VarName> <init:("=" <Expr>)?> ";" => ast::VarDecl { name , init },
+    KWRD_VAR <name:VarName> <init:("=" <Expr>)?> ";" => ast::VarDecl { name , init },
 }
 
 
 DeclStmt : ast::Stmt = {
     VarDecl => ast::Stmt::VarDecl(<>),
-    Stmt => <>
+    Stmt,
 }
 
 Block : ast::Block = {
@@ -230,5 +266,5 @@ ExprStmt : ast::ExprStmt = {
 }
 
 PrintStmt : ast::PrintStmt = {
-    PRINT_KEYWORD <Expr> ";" => ast::PrintStmt(<>),
+    KWRD_PRINT <Expr> ";" => ast::PrintStmt(<>),
 }

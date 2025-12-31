@@ -142,10 +142,18 @@ pub enum Stmt {
     Print(PrintStmt),
     VarDecl(VarDecl),
     Block(Box<Block>),
+    If(Box<IfStmt>),
 }
 
 #[derive(Debug)]
 pub struct Block(pub Vec<Stmt>);
+
+#[derive(Debug)]
+pub struct IfStmt {
+    pub cond: Expr,
+    pub then: Stmt,
+    pub else_: Option<Stmt>,
+}
 
 #[derive(Debug)]
 pub struct Prog(pub Vec<Stmt>);
@@ -355,6 +363,7 @@ impl Pretty for Stmt {
             Self::Print(x) => x.pretty(f),
             Self::VarDecl(x) => x.pretty(f),
             Self::Block(x) => x.pretty(f),
+            Self::If(x) => x.pretty(f),
         }
     }
 }
@@ -366,6 +375,17 @@ impl Pretty for Block {
             writeln!(f, "{{")?;
             x.pretty(f)?;
             writeln!(f, "}}")?
+        }
+        Ok(())
+    }
+}
+
+impl Pretty for IfStmt {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { cond, then, else_ } = self;
+        writeln!(f, "if {} {}", cond.display(), then.display())?;
+        if let Some(else_) = else_ {
+            writeln!(f, "else {}", else_.display())?;
         }
         Ok(())
     }

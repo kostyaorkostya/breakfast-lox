@@ -246,6 +246,48 @@ mod prog {
         .assert_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_if_without_else() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            if (true) print "then";
+        "#,
+        )?;
+        expect![[r#"
+            then
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_if_with_else() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            if (false) print "then"; else print "else";
+        "#,
+        )?;
+        expect![[r#"
+            else
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_if_dangling_else() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            if (false) print "then outer"; if (true) print "then inner"; else print "else";
+        "#,
+        )?;
+        expect![[r#"
+            then inner
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {
