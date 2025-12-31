@@ -253,6 +253,7 @@ fn eval_stmt(
         }
         ast::Stmt::Print(ast::PrintStmt(x)) => {
             let x = eval_expr(fuel, env, out, x)?;
+            fuel.burn()?;
             writeln!(out, "{}", x.display())?;
             Ok(())
         }

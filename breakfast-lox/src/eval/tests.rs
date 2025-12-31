@@ -1,4 +1,4 @@
-use super::{Fuel, Interpreter, Val};
+use super::{Interpreter, OutOfFuelError, RuntimeError, Val};
 use crate::grammar::{ExprParser, ProgParser};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -28,6 +28,18 @@ fn parse_and_eval_prog(prog: &str, fuel: Option<u64>) -> anyhow::Result<String> 
     Ok(String::from_utf8(buf.borrow().clone())?)
 }
 
+fn parse_and_eval_divergent_prog(prog: &str, fuel: u64) -> anyhow::Result<String> {
+    let prog = ProgParser::new()
+        .parse(prog)
+        .map_err(|e| e.map_token(|t| format!("{t:?}")))?;
+    let buf = Rc::new(RefCell::new(Vec::new()));
+    match Interpreter::new_for_test(Some(Rc::clone(&buf)), fuel).eval_prog(&prog) {
+        Err(RuntimeError::Fuel(OutOfFuelError)) => Ok(()),
+        x @ (Err(_) | Ok(_)) => Err(anyhow::anyhow!("expected running out of fuel, got {x:?}")),
+    }?;
+    Ok(String::from_utf8(buf.borrow().clone())?)
+}
+
 mod bool_literals {
     use super::parse_and_eval_expr;
     use expect_test::expect;
@@ -46,7 +58,7 @@ mod bool_literals {
 }
 
 mod prog {
-    use super::parse_and_eval_prog;
+    use super::{parse_and_eval_divergent_prog, parse_and_eval_prog};
     use expect_test::expect;
 
     #[test]
@@ -392,6 +404,25 @@ mod prog {
             }
         "#,
             None,
+        )?;
+        expect![[r#"
+            0
+            1
+            2
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_infinite_for_loop() -> anyhow::Result<()> {
+        let actual = parse_and_eval_divergent_prog(
+            r#"
+            for (var i = 0; ; i = i + 1) {
+              print i;
+            }
+        "#,
+            18,
         )?;
         expect![[r#"
             0
