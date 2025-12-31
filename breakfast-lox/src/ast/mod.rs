@@ -36,7 +36,7 @@ pub enum Lit {
     Str(StrLit),
 }
 
-#[nutype(derive(Debug, Deref, Borrow, FromStr))]
+#[nutype(derive(Debug, Deref, Borrow, FromStr, Clone))]
 pub struct VarName(String);
 
 #[derive(Debug)]

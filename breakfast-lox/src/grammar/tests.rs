@@ -121,7 +121,7 @@ mod num_literal {
 }
 
 mod prog {
-    use super::super::parse_prog;
+    use super::super::{CompileError, SyntaxError, parse_prog};
     use expect_test::expect;
 
     #[test]
@@ -412,6 +412,122 @@ mod prog {
                                 ),
                             ),
                         ),
+                    ),
+                ],
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
+}
+
+mod syntax {
+    use super::super::{CompileError, SyntaxError, parse_prog};
+    use expect_test::expect;
+
+    #[test]
+    fn test_reserved_keywords() -> anyhow::Result<()> {
+        // TODO(kostya): parser fails before syntax checking, should I even fix it?
+        let err = parse_prog("and;").unwrap_err();
+        println!("{err:?}");
+        assert!(matches!(err, CompileError::Lalrpop(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_break() -> anyhow::Result<()> {
+        let err = parse_prog("break;").unwrap_err();
+        assert!(matches!(
+            err,
+            CompileError::Syntax(SyntaxError::BreakOutsideLoop)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn test_break_not_in_loop() -> anyhow::Result<()> {
+        let err = parse_prog("if (true) break;").unwrap_err();
+        assert!(matches!(
+            err,
+            CompileError::Syntax(SyntaxError::BreakOutsideLoop)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn test_break_in_loop() -> anyhow::Result<()> {
+        let actual = parse_prog(
+            r#"
+            while (true) {
+              break;
+            }
+    "#,
+        )?;
+        expect![[r#"
+            Prog(
+                [
+                    While(
+                        WhileStmt {
+                            cond: Lit(
+                                Bool(
+                                    BoolLit(
+                                        true,
+                                    ),
+                                ),
+                            ),
+                            body: Block(
+                                Block(
+                                    [
+                                        Break,
+                                    ],
+                                ),
+                            ),
+                        },
+                    ),
+                ],
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_break_in_loop_in_block() -> anyhow::Result<()> {
+        let actual = parse_prog(
+            r#"
+            while (true) {
+              {
+                break;
+              }
+            }
+    "#,
+        )?;
+        expect![[r#"
+            Prog(
+                [
+                    While(
+                        WhileStmt {
+                            cond: Lit(
+                                Bool(
+                                    BoolLit(
+                                        true,
+                                    ),
+                                ),
+                            ),
+                            body: Block(
+                                Block(
+                                    [
+                                        Block(
+                                            Block(
+                                                [
+                                                    Break,
+                                                ],
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                            ),
+                        },
                     ),
                 ],
             )

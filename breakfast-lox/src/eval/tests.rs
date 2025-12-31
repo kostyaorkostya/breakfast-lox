@@ -460,6 +460,28 @@ mod prog {
         .assert_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_break() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            for (var i = 0;; i = i + 1) {
+              if (i >= 5) break;
+              print i;
+            }
+        "#,
+            None,
+        )?;
+        expect![[r#"
+            0
+            1
+            2
+            3
+            4
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {

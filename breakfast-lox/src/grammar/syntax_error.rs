@@ -1,5 +1,9 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-#[error("syntax error")]
-pub struct SyntaxError;
+pub enum SyntaxError {
+    #[error("break outside loop")]
+    BreakOutsideLoop,
+    #[error("reserved keyword: '{0}'")]
+    ReservedKeyword(String),
+}
