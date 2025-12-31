@@ -31,6 +31,8 @@ match {
     "false" => KWRD_FALSE,
     "if" => KWRD_IF,
     "else" => KWRD_ELSE,
+    "or" => KWRD_OR,
+    "and" => KWRD_AND,
     r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENTIFIER,
     // Decimal and hexademical floating constants as per ISO/IEC 9899:1999 §6.4.4.2
     r"[0-9]+\.([0-9]+)?([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+|\.[0-9]+([eE][+-]?[0-9]+)?" => DEC_FLOAT,
@@ -161,11 +163,31 @@ MulOp : ast::MulOp = {
 
 pub Expr : ast::Expr = {
     Assign => ast::Expr::Assign(<>),
-    EqExpr,
+    LogOr,
 }
 
 Assign : ast::Assign = {
     <name:VarName> "=" <val:Expr> => ast::Assign { name , val : Box::new(val) },
+}
+
+LogOr : ast::Expr = {
+    LogAnd,
+    <l:LogOr> KWRD_OR <r:LogAnd> => {
+        let op = ast::BinOp::Log(ast::LogOp::Or);
+        let l = Box::new(l);
+        let r = Box::new(r);
+        ast::Expr::Bin(ast::BinExpr { op, l, r })
+    },
+}
+
+LogAnd : ast::Expr = {
+    EqExpr,
+    <l:LogAnd> KWRD_AND <r:EqExpr> => {
+        let op = ast::BinOp::Log(ast::LogOp::And);
+        let l = Box::new(l);
+        let r = Box::new(r);
+        ast::Expr::Bin(ast::BinExpr { op, l, r })
+    },
 }
 
 EqExpr : ast::Expr = {
@@ -175,7 +197,7 @@ EqExpr : ast::Expr = {
         let r = Box::new(r);
         ast::Expr::Bin(ast::BinExpr { op, l, r })
     },
-    CmpExpr 
+    CmpExpr,
 }
 
 CmpExpr : ast::Expr = {
@@ -185,7 +207,7 @@ CmpExpr : ast::Expr = {
         let r = Box::new(r);
         ast::Expr::Bin(ast::BinExpr { op, l, r })
     },
-    TermExpr 
+    TermExpr, 
 }
 
 TermExpr : ast::Expr = {
@@ -195,7 +217,7 @@ TermExpr : ast::Expr = {
         let r = Box::new(r);
         ast::Expr::Bin(ast::BinExpr { op, l, r})
     },
-    FactorExpr 
+    FactorExpr ,
 }
 
 FactorExpr : ast::Expr = {
@@ -205,7 +227,7 @@ FactorExpr : ast::Expr = {
         let r = Box::new(r);
         ast::Expr::Bin(ast::BinExpr { op, l, r })
     },
-    UnExpr
+    UnExpr,
 }
 
 UnExpr : ast::Expr = {

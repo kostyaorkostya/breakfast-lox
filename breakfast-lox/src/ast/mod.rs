@@ -90,10 +90,19 @@ pub enum MulOp {
 }
 
 #[derive(Debug)]
+pub enum LogOp {
+    /// Logical "or" aka disjunction
+    Or,
+    /// Logical "and" aka conjunction
+    And,
+}
+
+#[derive(Debug)]
 pub enum BinOp {
     Rel(RelOp),
     Add(AddOp),
     Mul(MulOp),
+    Log(LogOp),
 }
 
 #[derive(Debug)]
@@ -289,12 +298,22 @@ impl Pretty for MulOp {
     }
 }
 
+impl Pretty for LogOp {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Or => write!(f, "or"),
+            Self::And => write!(f, "and"),
+        }
+    }
+}
+
 impl Pretty for BinOp {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Rel(x) => x.pretty(f),
             Self::Add(x) => x.pretty(f),
             Self::Mul(x) => x.pretty(f),
+            Self::Log(x) => x.pretty(f),
         }
     }
 }

@@ -288,6 +288,38 @@ mod prog {
         .assert_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_logical_or() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            print "hi" or 2;
+            print nil or "yes";
+        "#,
+        )?;
+        expect![[r#"
+            hi
+            yes
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_logical_and() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            print "hi" and 2;
+            print nil and "yes";
+        "#,
+        )?;
+        expect![[r#"
+            2
+            nil
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {

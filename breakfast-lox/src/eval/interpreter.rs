@@ -33,47 +33,72 @@ fn eval_bin_expr(
     l: &ast::Expr,
     r: &ast::Expr,
 ) -> Result<Val, RuntimeError> {
-    let (l, r) = (eval_expr(env, out, &l)?, eval_expr(env, out, &r)?);
+    let l = eval_expr(env, out, &l)?;
     match op {
-        ast::BinOp::Rel(ast::RelOp::Eq(op)) => Ok(Val::Bool(match op {
-            ast::EqOp::Eq => l == r,
-            ast::EqOp::Ne => l != r,
-        })),
-        ast::BinOp::Rel(ast::RelOp::Cmp(cmp)) => match (l, r) {
-            (Val::Num(l), Val::Num(r)) => Ok(Val::Bool(match cmp {
-                ast::CmpOp::Lt => l < r,
-                ast::CmpOp::Le => l <= r,
-                ast::CmpOp::Gt => l > r,
-                ast::CmpOp::Ge => l >= r,
-            })),
-            _ => Err(InvalidOperandTypeError::CmpOp)?,
-        },
-        ast::BinOp::Add(ast::AddOp::Add) => match (l, r) {
-            (Val::Num(l), Val::Num(r)) => Ok(Val::Num(l + r)),
-            (Val::Str(l), Val::Str(r)) => Ok(Val::Str(l + &r)),
-            (Val::Str(l), r @ Val::Num(_)) => {
-                // Challenge 2 from https://craftinginterpreters.com/evaluating-expressions.html#running-the-interpreter
-                // TODO(kostya): Apply some formatting rules to `r`?
-                Ok(Val::Str(format!("{l}{}", r.display())))
+        ast::BinOp::Rel(ast::RelOp::Eq(op)) => {
+            let r = eval_expr(env, out, &r)?;
+            Ok(Val::Bool(match op {
+                ast::EqOp::Eq => l == r,
+                ast::EqOp::Ne => l != r,
+            }))
+        }
+        ast::BinOp::Rel(ast::RelOp::Cmp(op)) => {
+            let r = eval_expr(env, out, &r)?;
+            match (l, r) {
+                (Val::Num(l), Val::Num(r)) => Ok(Val::Bool(match op {
+                    ast::CmpOp::Lt => l < r,
+                    ast::CmpOp::Le => l <= r,
+                    ast::CmpOp::Gt => l > r,
+                    ast::CmpOp::Ge => l >= r,
+                })),
+                _ => Err(InvalidOperandTypeError::CmpOp)?,
             }
-            _ => Err(InvalidOperandTypeError::AddOpAdd)?,
-        },
-        ast::BinOp::Add(ast::AddOp::Sub) => match (l, r) {
-            (Val::Num(l), Val::Num(r)) => Ok(Val::Num(l - r)),
-            _ => Err(InvalidOperandTypeError::AddOpSub)?,
-        },
-        ast::BinOp::Mul(mul) => match (l, r) {
-            (Val::Num(l), Val::Num(r)) => Ok(Val::Num(match mul {
-                ast::MulOp::Mul => Ok(l * r),
-                ast::MulOp::Div => {
-                    if r == 0.0 {
-                        Err(ArithmeticError::DivisionByZero)
-                    } else {
-                        Ok(l / r)
-                    }
+        }
+        ast::BinOp::Add(ast::AddOp::Add) => {
+            let r = eval_expr(env, out, &r)?;
+            match (l, r) {
+                (Val::Num(l), Val::Num(r)) => Ok(Val::Num(l + r)),
+                (Val::Str(l), Val::Str(r)) => Ok(Val::Str(l + &r)),
+                (Val::Str(l), r @ Val::Num(_)) => {
+                    // Challenge 2 from https://craftinginterpreters.com/evaluating-expressions.html#running-the-interpreter
+                    // TODO(kostya): Apply some formatting rules to `r`?
+                    Ok(Val::Str(format!("{l}{}", r.display())))
                 }
-            }?)),
-            _ => Err(InvalidOperandTypeError::MulOp)?,
+                _ => Err(InvalidOperandTypeError::AddOpAdd)?,
+            }
+        }
+        ast::BinOp::Add(ast::AddOp::Sub) => {
+            let r = eval_expr(env, out, &r)?;
+            match (l, r) {
+                (Val::Num(l), Val::Num(r)) => Ok(Val::Num(l - r)),
+                _ => Err(InvalidOperandTypeError::AddOpSub)?,
+            }
+        }
+        ast::BinOp::Mul(op) => {
+            let r = eval_expr(env, out, &r)?;
+            match (l, r) {
+                (Val::Num(l), Val::Num(r)) => Ok(Val::Num(match op {
+                    ast::MulOp::Mul => Ok(l * r),
+                    ast::MulOp::Div => {
+                        if r == 0.0 {
+                            Err(ArithmeticError::DivisionByZero)
+                        } else {
+                            Ok(l / r)
+                        }
+                    }
+                }?)),
+                _ => Err(InvalidOperandTypeError::MulOp)?,
+            }
+        }
+        ast::BinOp::Log(op) => match (op, l.truthy()) {
+            // https://craftinginterpreters.com/control-flow.html#logical-operators
+            // > The other interesting piece here is deciding what actual value to return. Since
+            // > Lox is dynamically typed, we allow operands of any type and use truthiness to
+            // > determine what each operand represents. We apply similar reasoning to the result.
+            // > Instead of promising to literally return true or false, a logic operator merely
+            // > guarantees it will return a value with appropriate truthiness.
+            (ast::LogOp::Or, true) | (ast::LogOp::And, false) => Ok(l),
+            _ => eval_expr(env, out, &r),
         },
     }
 }
