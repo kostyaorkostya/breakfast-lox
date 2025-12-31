@@ -153,6 +153,7 @@ pub enum Stmt {
     Block(Box<Block>),
     If(Box<IfStmt>),
     While(Box<WhileStmt>),
+    Break,
 }
 
 #[derive(Debug)]
@@ -391,6 +392,7 @@ impl Pretty for Stmt {
             Self::Block(x) => x.pretty(f),
             Self::If(x) => x.pretty(f),
             Self::While(x) => x.pretty(f),
+            Self::Break => writeln!(f, "break;"),
         }
     }
 }

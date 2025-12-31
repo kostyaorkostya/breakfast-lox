@@ -22,5 +22,8 @@ use env::{Env, UndefinedVariableError};
 mod fuel;
 use fuel::{Fuel, OutOfFuelError};
 
+mod control_flow;
+use control_flow::ControlFlow;
+
 #[cfg(test)]
 mod tests;

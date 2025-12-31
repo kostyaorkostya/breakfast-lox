@@ -1,10 +1,10 @@
 mod bool_literals {
-    use super::super::grammar::ExprParser;
+    use super::super::parse_expr;
     use expect_test::expect;
 
     #[test]
     fn test_false() -> anyhow::Result<()> {
-        let actual = ExprParser::new().parse("false")?;
+        let actual = parse_expr("false")?;
         expect![[r#"
         Lit(
             Bool(
@@ -20,7 +20,7 @@ mod bool_literals {
 
     #[test]
     fn test_true() -> anyhow::Result<()> {
-        let actual = ExprParser::new().parse("false")?;
+        let actual = parse_expr("false")?;
         expect![[r#"
         Lit(
             Bool(
@@ -36,11 +36,11 @@ mod bool_literals {
 }
 
 mod nil_literal {
-    use super::super::grammar::ExprParser;
+    use super::super::parse_expr;
     use expect_test::expect;
     #[test]
     fn test_nil() -> anyhow::Result<()> {
-        let actual = ExprParser::new().parse("nil")?;
+        let actual = parse_expr("nil")?;
         expect![[r#"
             Lit(
                 Nil(
@@ -54,15 +54,14 @@ mod nil_literal {
 }
 
 mod num_literal {
-    use super::super::grammar::ExprParser;
-    use super::super::parse_error;
     use super::super::parse_error::NumLitParseError;
+    use super::super::parse_expr;
+    use super::super::{CompileError, ParseError};
     use expect_test::expect;
-    use lalrpop_util::ParseError;
 
     #[test]
     fn test_0_one() -> anyhow::Result<()> {
-        let actual = ExprParser::new().parse("0")?;
+        let actual = parse_expr("0")?;
         expect![[r#"
             Lit(
                 Num(
@@ -78,7 +77,7 @@ mod num_literal {
 
     #[test]
     fn test_0_two() -> anyhow::Result<()> {
-        let actual = ExprParser::new().parse("0.")?;
+        let actual = parse_expr("0.")?;
         expect![[r#"
             Lit(
                 Num(
@@ -94,7 +93,7 @@ mod num_literal {
 
     #[test]
     fn test_0_three() -> anyhow::Result<()> {
-        let actual = ExprParser::new().parse(".0")?;
+        let actual = parse_expr(".0")?;
         expect![[r#"
             Lit(
                 Num(
@@ -111,23 +110,23 @@ mod num_literal {
     #[test]
     #[ignore = "TODO(kostya): fix it"]
     fn test_integer_greater_than_representable_by_f64() {
-        let err = ExprParser::new().parse("9007199254740993").unwrap_err();
+        let err = parse_expr("9007199254740993").unwrap_err();
         assert!(matches!(
             err,
-            ParseError::User {
-                error: parse_error::ParseError::NumLit(NumLitParseError::NumberIsNotFinite { .. })
-            }
+            CompileError::Parse(ParseError::NumLit(
+                NumLitParseError::NumberIsNotFinite { .. }
+            ))
         ));
     }
 }
 
 mod prog {
-    use super::super::ProgParser;
+    use super::super::parse_prog;
     use expect_test::expect;
 
     #[test]
     fn test_basic() -> anyhow::Result<()> {
-        let actual = ProgParser::new().parse(
+        let actual = parse_prog(
             r#"
             var foo = "foo";
             var bar = "bar";
@@ -199,7 +198,7 @@ mod prog {
 
     #[test]
     fn test_block() -> anyhow::Result<()> {
-        let actual = ProgParser::new().parse(
+        let actual = parse_prog(
             r#"
             var a = "global a";
             var b = "global b";

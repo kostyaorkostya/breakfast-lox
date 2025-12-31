@@ -1,4 +1,6 @@
-use super::{ArithmeticError, InvalidOperandTypeError, RuntimeError, Stringify, Truthy};
+use super::{
+    ArithmeticError, ControlFlow, InvalidOperandTypeError, RuntimeError, Stringify, Truthy,
+};
 use super::{Env, Fuel, Val, VarName};
 use crate::ast;
 use std::io;
@@ -178,7 +180,7 @@ fn eval_var_decl(
     env: &mut Env,
     out: &mut dyn io::Write,
     var_decl: &ast::VarDecl,
-) -> Result<(), RuntimeError> {
+) -> Result<ControlFlow, RuntimeError> {
     let ast::VarDecl { name, init } = var_decl;
     match init {
         None => {
@@ -191,7 +193,7 @@ fn eval_var_decl(
             env.define(VarName::new((**name).clone()), init)
         }
     }
-    Ok(())
+    Ok(ControlFlow::Cont)
 }
 
 fn eval_block(
@@ -199,13 +201,16 @@ fn eval_block(
     env: &mut Env,
     out: &mut dyn io::Write,
     block: &ast::Block,
-) -> Result<(), RuntimeError> {
+) -> Result<ControlFlow, RuntimeError> {
     let ast::Block(stmts) = block;
     let mut env = env.extend();
     for stmt in stmts {
-        eval_stmt(fuel, &mut env, out, stmt)?
+        match eval_stmt(fuel, &mut env, out, stmt)? {
+            ControlFlow::Cont => (),
+            ControlFlow::Break => return Ok(ControlFlow::Break),
+        }
     }
-    Ok(())
+    Ok(ControlFlow::Cont)
 }
 
 fn eval_if(
@@ -213,14 +218,14 @@ fn eval_if(
     env: &mut Env,
     out: &mut dyn io::Write,
     if_: &ast::IfStmt,
-) -> Result<(), RuntimeError> {
+) -> Result<ControlFlow, RuntimeError> {
     let ast::IfStmt { cond, then, else_ } = if_;
     if eval_expr(fuel, env, out, cond)?.truthy() {
         eval_stmt(fuel, env, out, then)
     } else if let Some(else_) = else_ {
         eval_stmt(fuel, env, out, else_)
     } else {
-        Ok(())
+        Ok(ControlFlow::Cont)
     }
 }
 
@@ -229,12 +234,15 @@ fn eval_while(
     env: &mut Env,
     out: &mut dyn io::Write,
     while_: &ast::WhileStmt,
-) -> Result<(), RuntimeError> {
+) -> Result<ControlFlow, RuntimeError> {
     let ast::WhileStmt { cond, body } = while_;
     while eval_expr(fuel, env, out, cond)?.truthy() {
-        eval_stmt(fuel, env, out, body)?
+        match eval_stmt(fuel, env, out, body)? {
+            ControlFlow::Cont => (),
+            ControlFlow::Break => break,
+        }
     }
-    Ok(())
+    Ok(ControlFlow::Cont)
 }
 
 fn eval_stmt(
@@ -242,25 +250,26 @@ fn eval_stmt(
     env: &mut Env,
     out: &mut dyn io::Write,
     stmt: &ast::Stmt,
-) -> Result<(), RuntimeError> {
+) -> Result<ControlFlow, RuntimeError> {
     match stmt {
         ast::Stmt::Expr(ast::ExprStmt(x)) => {
             // https://craftinginterpreters.com/statements-and-state.html#executing-statements
             // > We evaluate the inner expression using our existing evaluate() method and
             // > discard the value.
             let _ = eval_expr(fuel, env, out, x)?;
-            Ok(())
+            Ok(ControlFlow::Cont)
         }
         ast::Stmt::Print(ast::PrintStmt(x)) => {
             let x = eval_expr(fuel, env, out, x)?;
             fuel.burn()?;
             writeln!(out, "{}", x.display())?;
-            Ok(())
+            Ok(ControlFlow::Cont)
         }
         ast::Stmt::VarDecl(x) => eval_var_decl(fuel, env, out, x),
         ast::Stmt::Block(x) => eval_block(fuel, env, out, x),
         ast::Stmt::If(x) => eval_if(fuel, env, out, x),
         ast::Stmt::While(x) => eval_while(fuel, env, out, x),
+        ast::Stmt::Break => Ok(ControlFlow::Break),
     }
 }
 
@@ -269,12 +278,15 @@ fn eval_prog(
     env: &mut Env,
     out: &mut dyn io::Write,
     prog: &ast::Prog,
-) -> Result<(), RuntimeError> {
+) -> Result<ControlFlow, RuntimeError> {
     let ast::Prog(stmts) = prog;
     for stmt in stmts {
-        eval_stmt(fuel, env, out, stmt)?
+        match eval_stmt(fuel, env, out, stmt)? {
+            ControlFlow::Cont => (),
+            ControlFlow::Break => return Ok(ControlFlow::Break),
+        }
     }
-    Ok(())
+    Ok(ControlFlow::Cont)
 }
 
 pub struct Interpreter {
@@ -321,6 +333,9 @@ impl Interpreter {
     }
 
     pub fn eval_prog(&mut self, prog: &ast::Prog) -> Result<(), RuntimeError> {
-        eval_prog(&mut self.fuel, &mut self.env, &mut *self.out, prog)
+        match eval_prog(&mut self.fuel, &mut self.env, &mut *self.out, prog)? {
+            ControlFlow::Cont => Ok(()),
+            ControlFlow::Break => panic!("unexpected break"),
+        }
     }
 }

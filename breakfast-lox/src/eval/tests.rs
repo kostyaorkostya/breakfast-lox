@@ -1,5 +1,5 @@
 use super::{Interpreter, OutOfFuelError, RuntimeError, Val};
-use crate::grammar::{ExprParser, ProgParser};
+use crate::grammar::{parse_expr, parse_prog};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -13,25 +13,19 @@ fn resolve_fuel(fuel: Option<u64>) -> u64 {
 }
 
 fn parse_and_eval_expr(expr: &str, fuel: Option<u64>) -> anyhow::Result<Val> {
-    let expr = ExprParser::new()
-        .parse(expr)
-        .map_err(|e| e.map_token(|t| format!("{t:?}")))?;
+    let expr = parse_expr(expr)?;
     Ok(Interpreter::new_for_test(None, resolve_fuel(fuel)).eval_expr(&expr)?)
 }
 
 fn parse_and_eval_prog(prog: &str, fuel: Option<u64>) -> anyhow::Result<String> {
-    let prog = ProgParser::new()
-        .parse(prog)
-        .map_err(|e| e.map_token(|t| format!("{t:?}")))?;
+    let prog = parse_prog(prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
     Interpreter::new_for_test(Some(Rc::clone(&buf)), resolve_fuel(fuel)).eval_prog(&prog)?;
     Ok(String::from_utf8(buf.borrow().clone())?)
 }
 
 fn parse_and_eval_divergent_prog(prog: &str, fuel: u64) -> anyhow::Result<String> {
-    let prog = ProgParser::new()
-        .parse(prog)
-        .map_err(|e| e.map_token(|t| format!("{t:?}")))?;
+    let prog = parse_prog(prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
     match Interpreter::new_for_test(Some(Rc::clone(&buf)), fuel).eval_prog(&prog) {
         Err(RuntimeError::Fuel(OutOfFuelError)) => Ok(()),
