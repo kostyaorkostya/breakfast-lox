@@ -10,27 +10,30 @@ pub use syntax_error::SyntaxError;
 mod compile_error;
 pub use compile_error::CompileError;
 
+mod syntax;
+
 mod grammar_support;
 
 lalrpop_mod!(grammar, "/grammar/grammar.rs");
-use grammar::{ExprParser, ProgParser};
 
+#[cfg(test)]
 pub(crate) fn parse_expr(expr: &str) -> Result<ast::Expr, CompileError> {
-    let ast = match ExprParser::new().parse(expr) {
+    let expr = match grammar::ExprParser::new().parse(expr) {
         Ok(x) => Ok(x),
         Err(lalrpop_util::ParseError::User { error }) => Err(CompileError::Parse(error)),
         Err(x) => Err(CompileError::Lalrpop(anyhow::anyhow!("{x:?}"))),
     }?;
-    Ok(ast)
+    Ok(expr)
 }
 
 pub fn parse_prog(prog: &str) -> Result<ast::Prog, CompileError> {
-    let ast = match ProgParser::new().parse(prog) {
+    let prog = match grammar::ProgParser::new().parse(prog) {
         Ok(x) => Ok(x),
         Err(lalrpop_util::ParseError::User { error }) => Err(CompileError::Parse(error)),
         Err(x) => Err(CompileError::Lalrpop(anyhow::anyhow!("{x:?}"))),
     }?;
-    Ok(ast)
+    syntax::validate_prog(&prog)?;
+    Ok(prog)
 }
 
 #[cfg(test)]
