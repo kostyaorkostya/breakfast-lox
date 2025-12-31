@@ -1,4 +1,4 @@
-use super::UndefinedVariableError;
+use super::{OutOfFuelError, UndefinedVariableError};
 use std::io;
 use thiserror::Error;
 
@@ -40,4 +40,6 @@ pub enum RuntimeError {
     UndefinedVariable(#[from] UndefinedVariableError),
     #[error("unimplemented")]
     Unimplemented,
+    #[error("{0}")]
+    Fuel(#[from] OutOfFuelError),
 }

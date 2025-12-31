@@ -1,21 +1,30 @@
-use super::{Interpreter, Val};
+use super::{Fuel, Interpreter, Val};
 use crate::grammar::{ExprParser, ProgParser};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-fn parse_and_eval_expr(expr: &str) -> anyhow::Result<Val> {
+const DEFAULT_FUEL: u64 = 1000u64;
+fn resolve_fuel(fuel: Option<u64>) -> u64 {
+    if let Some(fuel) = fuel {
+        fuel
+    } else {
+        DEFAULT_FUEL
+    }
+}
+
+fn parse_and_eval_expr(expr: &str, fuel: Option<u64>) -> anyhow::Result<Val> {
     let expr = ExprParser::new()
         .parse(expr)
         .map_err(|e| e.map_token(|t| format!("{t:?}")))?;
-    Ok(Interpreter::new_for_test(None).eval_expr(&expr)?)
+    Ok(Interpreter::new_for_test(None, resolve_fuel(fuel)).eval_expr(&expr)?)
 }
 
-fn parse_and_eval_prog(prog: &str) -> anyhow::Result<String> {
+fn parse_and_eval_prog(prog: &str, fuel: Option<u64>) -> anyhow::Result<String> {
     let prog = ProgParser::new()
         .parse(prog)
         .map_err(|e| e.map_token(|t| format!("{t:?}")))?;
     let buf = Rc::new(RefCell::new(Vec::new()));
-    Interpreter::new_for_test(Some(Rc::clone(&buf))).eval_prog(&prog)?;
+    Interpreter::new_for_test(Some(Rc::clone(&buf)), resolve_fuel(fuel)).eval_prog(&prog)?;
     Ok(String::from_utf8(buf.borrow().clone())?)
 }
 
@@ -25,7 +34,7 @@ mod bool_literals {
 
     #[test]
     fn test_false() -> anyhow::Result<()> {
-        let actual = parse_and_eval_expr("false")?;
+        let actual = parse_and_eval_expr("false", None)?;
         expect![[r#"
             Bool(
                 false,
@@ -37,14 +46,12 @@ mod bool_literals {
 }
 
 mod prog {
-    use std::any;
-
     use super::parse_and_eval_prog;
     use expect_test::expect;
 
     #[test]
     fn test_empty() -> anyhow::Result<()> {
-        let actual = parse_and_eval_prog(r#""#)?;
+        let actual = parse_and_eval_prog(r#""#, None)?;
         expect![""].assert_eq(&actual);
         Ok(())
     }
@@ -55,6 +62,7 @@ mod prog {
             r#"
             print "Hello, world!";
         "#,
+            None,
         )?;
         expect![[r#"
             Hello, world!
@@ -71,6 +79,7 @@ mod prog {
             var suffix = "world!";
             print (prefix + suffix);
         "#,
+            None,
         )?;
         expect![[r#"
             Hello, world!
@@ -85,6 +94,7 @@ mod prog {
             r#"
             unknown_variable;
         "#,
+            None,
         )
         .unwrap_err();
         expect![[r#"
@@ -104,6 +114,7 @@ mod prog {
             r#"
             unknown_variable = "bad";
         "#,
+            None,
         )
         .unwrap_err();
         expect![[r#"
@@ -125,6 +136,7 @@ mod prog {
             msg = "Hello world!";
             print msg;
         "#,
+            None,
         )?;
         expect![[r#"
             Hello world!
@@ -142,6 +154,7 @@ mod prog {
             msg = "Hello world!";
             print msg;
         "#,
+            None,
         )?;
         expect![[r#"
             Hello world!
@@ -158,6 +171,7 @@ mod prog {
             print (msg = "Hello, world!");
             print msg;
         "#,
+            None,
         )?;
         expect![[r#"
             Hello, world!
@@ -174,6 +188,7 @@ mod prog {
             var x;
             x;
         "#,
+            None,
         )
         .unwrap_err();
         expect![[r#"
@@ -212,6 +227,7 @@ mod prog {
             print b;
             print c;
         "#,
+            None,
         )?;
         expect![[r#"
             inner a
@@ -239,6 +255,7 @@ mod prog {
               print a;
             }
         "#,
+            None,
         )?;
         expect![[r#"
             3
@@ -253,6 +270,7 @@ mod prog {
             r#"
             if (true) print "then";
         "#,
+            None,
         )?;
         expect![[r#"
             then
@@ -267,6 +285,7 @@ mod prog {
             r#"
             if (false) print "then"; else print "else";
         "#,
+            None,
         )?;
         expect![[r#"
             else
@@ -281,6 +300,7 @@ mod prog {
             r#"
             if (false) print "then outer"; if (true) print "then inner"; else print "else";
         "#,
+            None,
         )?;
         expect![[r#"
             then inner
@@ -296,6 +316,7 @@ mod prog {
             print "hi" or 2;
             print nil or "yes";
         "#,
+            None,
         )?;
         expect![[r#"
             hi
@@ -312,6 +333,7 @@ mod prog {
             print "hi" and 2;
             print nil and "yes";
         "#,
+            None,
         )?;
         expect![[r#"
             2
@@ -331,6 +353,7 @@ mod prog {
               i = i - 1;
             }
         "#,
+            None,
         )?;
         expect![[r#"
             2
@@ -350,10 +373,30 @@ mod prog {
               i = i - 1;
             }
         "#,
+            None,
         )?;
         expect![[r#"
             2
             1
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_for_loop() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            for (var i = 0; i < 3; i = i + 1) {
+              print i;
+            }
+        "#,
+            None,
+        )?;
+        expect![[r#"
+            0
+            1
+            2
         "#]]
         .assert_eq(&actual);
         Ok(())

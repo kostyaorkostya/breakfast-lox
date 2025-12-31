@@ -19,5 +19,8 @@ use var_name::VarName;
 mod env;
 use env::{Env, UndefinedVariableError};
 
+mod fuel;
+use fuel::{Fuel, OutOfFuelError};
+
 #[cfg(test)]
 mod tests;
