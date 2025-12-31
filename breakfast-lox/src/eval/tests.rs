@@ -432,6 +432,40 @@ mod prog {
         .assert_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_fibonacci_via_loop() -> anyhow::Result<()> {
+        // last example from https://craftinginterpreters.com/control-flow.html#desugaring
+        let actual = parse_and_eval_prog(
+            r#"
+            var a = 0;
+            var temp;
+            for (var b = 1; a <= 144; b = temp + b) {
+              print a;
+              temp = a;
+              a = b;
+            }
+        "#,
+            None,
+        )?;
+        expect![[r#"
+            0
+            1
+            1
+            2
+            3
+            5
+            8
+            13
+            21
+            34
+            55
+            89
+            144
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {
