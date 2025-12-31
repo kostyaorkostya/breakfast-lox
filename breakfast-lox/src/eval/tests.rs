@@ -320,6 +320,44 @@ mod prog {
         .assert_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_while_loop() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var i = 2;
+            while (i > 0) {
+              print i;
+              i = i - 1;
+            }
+        "#,
+        )?;
+        expect![[r#"
+            2
+            1
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_while_in_if_then() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var i = 2;
+            if (true) while (i > 0) {
+              print i;
+              i = i - 1;
+            }
+        "#,
+        )?;
+        expect![[r#"
+            2
+            1
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {

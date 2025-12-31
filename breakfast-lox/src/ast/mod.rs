@@ -152,6 +152,7 @@ pub enum Stmt {
     VarDecl(VarDecl),
     Block(Box<Block>),
     If(Box<IfStmt>),
+    While(Box<WhileStmt>),
 }
 
 #[derive(Debug)]
@@ -162,6 +163,12 @@ pub struct IfStmt {
     pub cond: Expr,
     pub then: Stmt,
     pub else_: Option<Stmt>,
+}
+
+#[derive(Debug)]
+pub struct WhileStmt {
+    pub cond: Expr,
+    pub body: Stmt,
 }
 
 #[derive(Debug)]
@@ -383,6 +390,7 @@ impl Pretty for Stmt {
             Self::VarDecl(x) => x.pretty(f),
             Self::Block(x) => x.pretty(f),
             Self::If(x) => x.pretty(f),
+            Self::While(x) => x.pretty(f),
         }
     }
 }
@@ -407,6 +415,13 @@ impl Pretty for IfStmt {
             writeln!(f, "else {}", else_.display())?;
         }
         Ok(())
+    }
+}
+
+impl Pretty for WhileStmt {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { cond, body } = self;
+        writeln!(f, "while ({}) {}", cond.display(), body.display())
     }
 }
 

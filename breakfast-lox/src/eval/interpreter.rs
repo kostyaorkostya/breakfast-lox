@@ -176,6 +176,18 @@ fn eval_if(env: &mut Env, out: &mut dyn io::Write, if_: &ast::IfStmt) -> Result<
     }
 }
 
+fn eval_while(
+    env: &mut Env,
+    out: &mut dyn io::Write,
+    while_: &ast::WhileStmt,
+) -> Result<(), RuntimeError> {
+    let ast::WhileStmt { cond, body } = while_;
+    while eval_expr(env, out, cond)?.truthy() {
+        eval_stmt(env, out, body)?
+    }
+    Ok(())
+}
+
 fn eval_stmt(env: &mut Env, out: &mut dyn io::Write, stmt: &ast::Stmt) -> Result<(), RuntimeError> {
     match stmt {
         ast::Stmt::Expr(ast::ExprStmt(x)) => {
@@ -193,6 +205,7 @@ fn eval_stmt(env: &mut Env, out: &mut dyn io::Write, stmt: &ast::Stmt) -> Result
         ast::Stmt::VarDecl(x) => eval_var_decl(env, out, x),
         ast::Stmt::Block(x) => eval_block(env, out, x),
         ast::Stmt::If(x) => eval_if(env, out, x),
+        ast::Stmt::While(x) => eval_while(env, out, x),
     }
 }
 

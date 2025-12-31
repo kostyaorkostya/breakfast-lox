@@ -33,6 +33,7 @@ match {
     "else" => KWRD_ELSE,
     "or" => KWRD_OR,
     "and" => KWRD_AND,
+    "while" => KWRD_WHILE,
     r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENTIFIER,
     // Decimal and hexademical floating constants as per ISO/IEC 9899:1999 §6.4.4.2
     r"[0-9]+\.([0-9]+)?([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+|\.[0-9]+([eE][+-]?[0-9]+)?" => DEC_FLOAT,
@@ -250,16 +251,18 @@ Stmt : ast::Stmt = {
     UnmatchedStmt,
 }
 
-NonIfStmt : ast::Stmt = {
+NonIfWhileStmt : ast::Stmt = {
     ExprStmt => ast::Stmt::Expr(<>),
     PrintStmt => ast::Stmt::Print(<>),
     Block => ast::Stmt::Block(Box::new(<>)),
 }
 
 MatchedStmt : ast::Stmt = { 
-    NonIfStmt,
+    NonIfWhileStmt,
     KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:MatchedStmt> =>
         ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: Some(else_) })),
+    KWRD_WHILE "(" <cond:Expr> ")" <body:MatchedStmt> =>
+        ast::Stmt::While(Box::new(ast::WhileStmt { cond, body })),
 }
 
 UnmatchedStmt : ast::Stmt = {
@@ -267,6 +270,8 @@ UnmatchedStmt : ast::Stmt = {
         ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: None })),
     KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:UnmatchedStmt> =>
         ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: Some(else_) })),
+    KWRD_WHILE "(" <cond:Expr> ")" <body:UnmatchedStmt> =>
+        ast::Stmt::While(Box::new(ast::WhileStmt { cond, body })),
 }
 
 VarDecl : ast::VarDecl = {
@@ -277,6 +282,10 @@ VarDecl : ast::VarDecl = {
 DeclStmt : ast::Stmt = {
     VarDecl => ast::Stmt::VarDecl(<>),
     Stmt,
+}
+
+WhileStmt : ast::WhileStmt = {
+    KWRD_WHILE "(" <cond:Expr> ")" <body:Stmt> => ast::WhileStmt { cond, body },
 }
 
 Block : ast::Block = {
