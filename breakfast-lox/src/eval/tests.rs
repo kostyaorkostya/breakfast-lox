@@ -12,22 +12,34 @@ fn resolve_fuel(fuel: Option<u64>) -> u64 {
     }
 }
 
-fn parse_and_eval_expr(expr: &str, fuel: Option<u64>) -> anyhow::Result<Val> {
+fn parse_and_eval_expr(
+    expr: &str,
+    fuel: Option<u64>,
+    clock: Option<Rc<RefCell<f64>>>,
+) -> anyhow::Result<Val> {
     let expr = parse_expr(expr)?;
-    Ok(Interpreter::new_for_test(None, resolve_fuel(fuel)).eval_expr(&expr)?)
+    Ok(Interpreter::new_for_test(None, resolve_fuel(fuel), clock).eval_expr(&expr)?)
 }
 
-fn parse_and_eval_prog(prog: &str, fuel: Option<u64>) -> anyhow::Result<String> {
+fn parse_and_eval_prog(
+    prog: &str,
+    fuel: Option<u64>,
+    clock: Option<Rc<RefCell<f64>>>,
+) -> anyhow::Result<String> {
     let prog = parse_prog(prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
-    Interpreter::new_for_test(Some(Rc::clone(&buf)), resolve_fuel(fuel)).eval_prog(&prog)?;
+    Interpreter::new_for_test(Some(Rc::clone(&buf)), resolve_fuel(fuel), clock).eval_prog(&prog)?;
     Ok(String::from_utf8(buf.borrow().clone())?)
 }
 
-fn parse_and_eval_divergent_prog(prog: &str, fuel: u64) -> anyhow::Result<String> {
+fn parse_and_eval_divergent_prog(
+    prog: &str,
+    fuel: u64,
+    clock: Option<Rc<RefCell<f64>>>,
+) -> anyhow::Result<String> {
     let prog = parse_prog(prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
-    match Interpreter::new_for_test(Some(Rc::clone(&buf)), fuel).eval_prog(&prog) {
+    match Interpreter::new_for_test(Some(Rc::clone(&buf)), fuel, clock).eval_prog(&prog) {
         Err(RuntimeError::Fuel(OutOfFuelError)) => Ok(()),
         x @ (Err(_) | Ok(_)) => Err(anyhow::anyhow!("expected running out of fuel, got {x:?}")),
     }?;
@@ -40,7 +52,7 @@ mod bool_literals {
 
     #[test]
     fn test_false() -> anyhow::Result<()> {
-        let actual = parse_and_eval_expr("false", None)?;
+        let actual = parse_and_eval_expr("false", None, None)?;
         expect![[r#"
             Bool(
                 false,
@@ -54,10 +66,12 @@ mod bool_literals {
 mod prog {
     use super::{parse_and_eval_divergent_prog, parse_and_eval_prog};
     use expect_test::expect;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     #[test]
     fn test_empty() -> anyhow::Result<()> {
-        let actual = parse_and_eval_prog(r#""#, None)?;
+        let actual = parse_and_eval_prog(r#""#, None, None)?;
         expect![""].assert_eq(&actual);
         Ok(())
     }
@@ -68,6 +82,7 @@ mod prog {
             r#"
             print "Hello, world!";
         "#,
+            None,
             None,
         )?;
         expect![[r#"
@@ -86,6 +101,7 @@ mod prog {
             print (prefix + suffix);
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             Hello, world!
@@ -100,6 +116,7 @@ mod prog {
             r#"
             unknown_variable;
         "#,
+            None,
             None,
         )
         .unwrap_err();
@@ -120,6 +137,7 @@ mod prog {
             r#"
             unknown_variable = "bad";
         "#,
+            None,
             None,
         )
         .unwrap_err();
@@ -143,6 +161,7 @@ mod prog {
             print msg;
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             Hello world!
@@ -161,6 +180,7 @@ mod prog {
             print msg;
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             Hello world!
@@ -178,6 +198,7 @@ mod prog {
             print msg;
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             Hello, world!
@@ -194,6 +215,7 @@ mod prog {
             var x;
             x;
         "#,
+            None,
             None,
         )
         .unwrap_err();
@@ -234,6 +256,7 @@ mod prog {
             print c;
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             inner a
@@ -262,6 +285,7 @@ mod prog {
             }
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             3
@@ -276,6 +300,7 @@ mod prog {
             r#"
             if (true) print "then";
         "#,
+            None,
             None,
         )?;
         expect![[r#"
@@ -292,6 +317,7 @@ mod prog {
             if (false) print "then"; else print "else";
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             else
@@ -306,6 +332,7 @@ mod prog {
             r#"
             if (false) print "then outer"; if (true) print "then inner"; else print "else";
         "#,
+            None,
             None,
         )?;
         expect![[r#"
@@ -323,6 +350,7 @@ mod prog {
             print nil or "yes";
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             hi
@@ -339,6 +367,7 @@ mod prog {
             print "hi" and 2;
             print nil and "yes";
         "#,
+            None,
             None,
         )?;
         expect![[r#"
@@ -360,6 +389,7 @@ mod prog {
             }
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             2
@@ -380,6 +410,7 @@ mod prog {
             }
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             2
@@ -397,6 +428,7 @@ mod prog {
               print i;
             }
         "#,
+            None,
             None,
         )?;
         expect![[r#"
@@ -417,6 +449,7 @@ mod prog {
             }
         "#,
             18,
+            None,
         )?;
         expect![[r#"
             0
@@ -440,6 +473,7 @@ mod prog {
               a = b;
             }
         "#,
+            None,
             None,
         )?;
         expect![[r#"
@@ -471,6 +505,7 @@ mod prog {
             }
         "#,
             None,
+            None,
         )?;
         expect![[r#"
             0
@@ -478,6 +513,22 @@ mod prog {
             2
             3
             4
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_native_function_clock() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            print clock();
+        "#,
+            None,
+            Some(Rc::new(RefCell::new(20260103f64))),
+        )?;
+        expect![[r#"
+            20260103
         "#]]
         .assert_eq(&actual);
         Ok(())

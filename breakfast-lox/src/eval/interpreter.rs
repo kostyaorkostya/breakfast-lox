@@ -1,39 +1,29 @@
 use super::{
-    ArithmeticError, ControlFlow, InvalidOperandTypeError, RuntimeError, Stringify, Truthy,
+    ControlFlow, InternalCompilerError, NativeFn, RuntimeError, Stringify, Truthy, TypeError,
+    UserFn, VarName,
 };
-use super::{Env, Fuel, Val, VarName};
+use super::{Env, Fn, Fuel, Val, native_fns};
 use crate::ast;
-use std::io;
-
-#[cfg(test)]
 use std::cell::RefCell;
-#[cfg(test)]
+use std::io;
+use std::iter::zip;
 use std::rc::Rc;
 
 fn eval_un_expr(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
     op: &ast::UnOp,
     e: &ast::Expr,
 ) -> Result<Val, RuntimeError> {
-    match (op, eval_expr(fuel, env, out, &e)?) {
-        (ast::UnOp::Neg, Val::Nil) => Err(InvalidOperandTypeError::UnOpNegOnNil)?,
-        (ast::UnOp::Neg, Val::Bool(_)) => Err(InvalidOperandTypeError::UnOpNegOnBool)?,
-        (ast::UnOp::Neg, Val::Str(_)) => Err(InvalidOperandTypeError::UnOpNegOnStr)?,
-        (ast::UnOp::Neg, Val::Num(x)) => {
-            fuel.burn()?;
-            // TODO(kostya): check if `-x` is representable
-            Ok(Val::Num(-x))
-        }
-        (ast::UnOp::Not, e) => {
-            fuel.burn()?;
-            Ok(Val::Bool(!e.truthy()))
-        }
-    }
+    let val = eval_expr(glob_env, fuel, env, out, &e)?;
+    fuel.burn()?;
+    Ok(val.eval_un_op(op)?)
 }
 
 fn eval_bin_expr(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
@@ -41,80 +31,27 @@ fn eval_bin_expr(
     l: &ast::Expr,
     r: &ast::Expr,
 ) -> Result<Val, RuntimeError> {
-    let l = eval_expr(fuel, env, out, &l)?;
+    let l = eval_expr(glob_env, fuel, env, out, &l)?;
     match op {
         ast::BinOp::Rel(ast::RelOp::Eq(op)) => {
-            let r = eval_expr(fuel, env, out, &r)?;
+            let r = eval_expr(glob_env, fuel, env, out, &r)?;
             fuel.burn()?;
-            Ok(Val::Bool(match op {
-                ast::EqOp::Eq => l == r,
-                ast::EqOp::Ne => l != r,
-            }))
+            Ok(Val::Bool(l.eval_eq_op(op, &r)))
         }
         ast::BinOp::Rel(ast::RelOp::Cmp(op)) => {
-            let r = eval_expr(fuel, env, out, &r)?;
-            match (l, r) {
-                (Val::Num(l), Val::Num(r)) => {
-                    fuel.burn()?;
-                    Ok(Val::Bool(match op {
-                        ast::CmpOp::Lt => l < r,
-                        ast::CmpOp::Le => l <= r,
-                        ast::CmpOp::Gt => l > r,
-                        ast::CmpOp::Ge => l >= r,
-                    }))
-                }
-                _ => Err(InvalidOperandTypeError::CmpOp)?,
-            }
+            let r = eval_expr(glob_env, fuel, env, out, &r)?;
+            fuel.burn()?;
+            Ok(Val::Bool(l.eval_cmp_op(op, &r)?))
         }
-        ast::BinOp::Add(ast::AddOp::Add) => {
-            let r = eval_expr(fuel, env, out, &r)?;
-            match (l, r) {
-                (Val::Num(l), Val::Num(r)) => {
-                    fuel.burn()?;
-                    Ok(Val::Num(l + r))
-                }
-                (Val::Str(l), Val::Str(r)) => {
-                    fuel.burn()?;
-                    Ok(Val::Str(l + &r))
-                }
-                (Val::Str(l), r @ Val::Num(_)) => {
-                    fuel.burn()?;
-                    // Challenge 2 from https://craftinginterpreters.com/evaluating-expressions.html#running-the-interpreter
-                    // TODO(kostya): Apply some formatting rules to `r`?
-                    Ok(Val::Str(format!("{l}{}", r.display())))
-                }
-                _ => Err(InvalidOperandTypeError::AddOpAdd)?,
-            }
-        }
-        ast::BinOp::Add(ast::AddOp::Sub) => {
-            let r = eval_expr(fuel, env, out, &r)?;
-            match (l, r) {
-                (Val::Num(l), Val::Num(r)) => {
-                    fuel.burn()?;
-                    Ok(Val::Num(l - r))
-                }
-                _ => Err(InvalidOperandTypeError::AddOpSub)?,
-            }
+        ast::BinOp::Add(op) => {
+            let r = eval_expr(glob_env, fuel, env, out, &r)?;
+            fuel.burn()?;
+            Ok(l.eval_add_op(op, &r)?)
         }
         ast::BinOp::Mul(op) => {
-            let r = eval_expr(fuel, env, out, &r)?;
-            match (l, r) {
-                (Val::Num(l), Val::Num(r)) => Ok(Val::Num(match op {
-                    ast::MulOp::Mul => {
-                        fuel.burn()?;
-                        Ok(l * r)
-                    }
-                    ast::MulOp::Div => {
-                        if r == 0.0 {
-                            Err(ArithmeticError::DivisionByZero)
-                        } else {
-                            fuel.burn()?;
-                            Ok(l / r)
-                        }
-                    }
-                }?)),
-                _ => Err(InvalidOperandTypeError::MulOp)?,
-            }
+            let r = eval_expr(glob_env, fuel, env, out, &r)?;
+            fuel.burn()?;
+            Ok(Val::Num(l.eval_mul_op(op, &r)?))
         }
         ast::BinOp::Log(op) => match (op, l.truthy()) {
             // https://craftinginterpreters.com/control-flow.html#logical-operators
@@ -128,7 +65,7 @@ fn eval_bin_expr(
                 Ok(l)
             }
             _ => {
-                let ret = eval_expr(fuel, env, out, &r)?;
+                let ret = eval_expr(glob_env, fuel, env, out, &r)?;
                 fuel.burn()?;
                 Ok(ret)
             }
@@ -137,19 +74,76 @@ fn eval_bin_expr(
 }
 
 fn eval_assign(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
     assign: &ast::Assign,
 ) -> Result<Val, RuntimeError> {
     let ast::Assign { name, val } = assign;
-    let val = eval_expr(fuel, env, out, val)?;
+    let val = eval_expr(glob_env, fuel, env, out, val)?;
     fuel.burn()?;
     env.assign(name, val.clone())?;
     Ok(val)
 }
 
+fn eval_call(
+    glob_env: &mut Env,
+    fuel: &mut Fuel,
+    env: &mut Env,
+    out: &mut dyn io::Write,
+    call: &ast::Call,
+) -> Result<Val, RuntimeError> {
+    let ast::Call { callee, args } = call;
+    match eval_expr(glob_env, fuel, env, out, callee)? {
+        x @ (Val::Nil | Val::Bool(_) | Val::Num(_) | Val::Str(_)) => Err(TypeError {
+            msg: format!("is not a function `{x:?}`"),
+        })?,
+        Val::Fn(fn_) => {
+            if fn_.arity() != args.len() {
+                Err(TypeError {
+                    msg: format!(
+                        "{} takes {} arguments, {} provided",
+                        fn_.name(),
+                        fn_.arity(),
+                        args.len()
+                    ),
+                })?
+            }
+
+            let args = args
+                .iter()
+                .map(|arg| eval_expr(glob_env, fuel, env, out, arg))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            match &*fn_ {
+                Fn::Native(NativeFn { fn_, .. }) => {
+                    fuel.burn()?;
+                    fn_(glob_env, &args)
+                }
+                Fn::User(UserFn {
+                    name: _,
+                    params,
+                    body,
+                }) => {
+                    let mut env = env.extend();
+                    for (name, arg) in zip(params, args) {
+                        env.define(name.clone(), arg);
+                    }
+                    match eval_block(glob_env, fuel, &mut env, out, body)? {
+                        ControlFlow::Cont => Ok(Val::Nil),
+                        ControlFlow::Break => Err(InternalCompilerError {
+                            msg: format!("break outside a loop, should have been a syntax error"),
+                        })?,
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn eval_expr(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
@@ -158,24 +152,23 @@ fn eval_expr(
     match expr {
         ast::Expr::Lit(lit) => {
             fuel.burn()?;
-            Ok(match lit {
-                ast::Lit::Nil(_) => Val::Nil,
-                ast::Lit::Bool(x) => Val::Bool(x.0),
-                ast::Lit::Num(x) => Val::Num(x.0),
-                ast::Lit::Str(x) => Val::Str(x.0.clone()),
-            })
+            Ok(lit.clone().into())
         }
-        ast::Expr::Un(ast::UnExpr { op, e }) => eval_un_expr(fuel, env, out, op, e),
-        ast::Expr::Bin(ast::BinExpr { op, l, r }) => eval_bin_expr(fuel, env, out, op, l, r),
+        ast::Expr::Un(ast::UnExpr { op, e }) => eval_un_expr(glob_env, fuel, env, out, op, e),
+        ast::Expr::Bin(ast::BinExpr { op, l, r }) => {
+            eval_bin_expr(glob_env, fuel, env, out, op, l, r)
+        }
         ast::Expr::Var(x) => {
             fuel.burn()?;
             Ok(env.get(&**x)?)
         }
-        ast::Expr::Assign(x) => eval_assign(fuel, env, out, x),
+        ast::Expr::Assign(x) => eval_assign(glob_env, fuel, env, out, x),
+        ast::Expr::Call(x) => eval_call(glob_env, fuel, env, out, x),
     }
 }
 
 fn eval_var_decl(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
@@ -186,17 +179,18 @@ fn eval_var_decl(
         None => {
             fuel.burn()?;
             // Challenge 2 from https://craftinginterpreters.com/statements-and-state.html#challenges
-            env.declare(VarName::new((**name).clone()))
+            env.declare(name.clone().into())
         }
         Some(init) => {
-            let init = eval_expr(fuel, env, out, init)?;
-            env.define(VarName::new((**name).clone()), init)
+            let init = eval_expr(glob_env, fuel, env, out, init)?;
+            env.define(name.clone().into(), init)
         }
     }
     Ok(ControlFlow::Cont)
 }
 
 fn eval_block(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
@@ -205,7 +199,7 @@ fn eval_block(
     let ast::Block(stmts) = block;
     let mut env = env.extend();
     for stmt in stmts {
-        match eval_stmt(fuel, &mut env, out, stmt)? {
+        match eval_stmt(glob_env, fuel, &mut env, out, stmt)? {
             ControlFlow::Cont => (),
             ControlFlow::Break => return Ok(ControlFlow::Break),
         }
@@ -214,30 +208,32 @@ fn eval_block(
 }
 
 fn eval_if(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
     if_: &ast::IfStmt,
 ) -> Result<ControlFlow, RuntimeError> {
     let ast::IfStmt { cond, then, else_ } = if_;
-    if eval_expr(fuel, env, out, cond)?.truthy() {
-        eval_stmt(fuel, env, out, then)
+    if eval_expr(glob_env, fuel, env, out, cond)?.truthy() {
+        eval_stmt(glob_env, fuel, env, out, then)
     } else if let Some(else_) = else_ {
-        eval_stmt(fuel, env, out, else_)
+        eval_stmt(glob_env, fuel, env, out, else_)
     } else {
         Ok(ControlFlow::Cont)
     }
 }
 
 fn eval_while(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
     while_: &ast::WhileStmt,
 ) -> Result<ControlFlow, RuntimeError> {
     let ast::WhileStmt { cond, body } = while_;
-    while eval_expr(fuel, env, out, cond)?.truthy() {
-        match eval_stmt(fuel, env, out, body)? {
+    while eval_expr(glob_env, fuel, env, out, cond)?.truthy() {
+        match eval_stmt(glob_env, fuel, env, out, body)? {
             ControlFlow::Cont => (),
             ControlFlow::Break => break,
         }
@@ -246,6 +242,7 @@ fn eval_while(
 }
 
 fn eval_stmt(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
@@ -256,56 +253,71 @@ fn eval_stmt(
             // https://craftinginterpreters.com/statements-and-state.html#executing-statements
             // > We evaluate the inner expression using our existing evaluate() method and
             // > discard the value.
-            let _ = eval_expr(fuel, env, out, x)?;
+            let _ = eval_expr(glob_env, fuel, env, out, x)?;
             Ok(ControlFlow::Cont)
         }
         ast::Stmt::Print(ast::PrintStmt(x)) => {
-            let x = eval_expr(fuel, env, out, x)?;
+            let x = eval_expr(glob_env, fuel, env, out, x)?;
             fuel.burn()?;
             writeln!(out, "{}", x.display())?;
             Ok(ControlFlow::Cont)
         }
-        ast::Stmt::VarDecl(x) => eval_var_decl(fuel, env, out, x),
-        ast::Stmt::Block(x) => eval_block(fuel, env, out, x),
-        ast::Stmt::If(x) => eval_if(fuel, env, out, x),
-        ast::Stmt::While(x) => eval_while(fuel, env, out, x),
+        ast::Stmt::VarDecl(x) => eval_var_decl(glob_env, fuel, env, out, x),
+        ast::Stmt::Block(x) => eval_block(glob_env, fuel, env, out, x),
+        ast::Stmt::If(x) => eval_if(glob_env, fuel, env, out, x),
+        ast::Stmt::While(x) => eval_while(glob_env, fuel, env, out, x),
         ast::Stmt::Break => Ok(ControlFlow::Break),
     }
 }
 
 fn eval_prog(
+    glob_env: &mut Env,
     fuel: &mut Fuel,
     env: &mut Env,
     out: &mut dyn io::Write,
     prog: &ast::Prog,
-) -> Result<ControlFlow, RuntimeError> {
+) -> Result<(), RuntimeError> {
     let ast::Prog(stmts) = prog;
     for stmt in stmts {
-        match eval_stmt(fuel, env, out, stmt)? {
+        match eval_stmt(glob_env, fuel, env, out, stmt)? {
             ControlFlow::Cont => (),
-            ControlFlow::Break => return Ok(ControlFlow::Break),
+            ControlFlow::Break => Err(InternalCompilerError {
+                msg: format!("break outside a loop, should have been a syntax error"),
+            })?,
         }
     }
-    Ok(ControlFlow::Cont)
+    Ok(())
 }
 
 pub struct Interpreter {
     fuel: Fuel,
-    env: Env,
+    glob_env: Env,
     out: Box<dyn io::Write>,
 }
 
 impl Interpreter {
+    fn new_global_env(clock: Option<Rc<RefCell<f64>>>) -> Env {
+        let mut env = Env::new();
+        for x in native_fns(clock).into_iter().map(Fn::Native) {
+            env.define(VarName::new(x.name()), Val::Fn(Rc::new(x)))
+        }
+        env
+    }
+
     pub fn new(out: Box<dyn io::Write>) -> Self {
         Self {
             fuel: Fuel::Infinite,
             out,
-            env: Env::new(),
+            glob_env: Self::new_global_env(None),
         }
     }
 
     #[cfg(test)]
-    pub(super) fn new_for_test(out: Option<Rc<RefCell<Vec<u8>>>>, fuel: u64) -> Self {
+    pub(super) fn new_for_test(
+        out: Option<Rc<RefCell<Vec<u8>>>>,
+        fuel: u64,
+        clock: Option<Rc<RefCell<f64>>>,
+    ) -> Self {
         struct SharedWriter(Rc<RefCell<Vec<u8>>>);
 
         impl io::Write for SharedWriter {
@@ -323,19 +335,30 @@ impl Interpreter {
                 Some(x) => Box::new(SharedWriter(x)),
                 None => Box::new(io::sink()),
             },
-            env: Env::new(),
+            glob_env: Self::new_global_env(clock),
         }
     }
 
     #[cfg(test)]
     pub(super) fn eval_expr(&mut self, expr: &ast::Expr) -> Result<Val, RuntimeError> {
-        eval_expr(&mut self.fuel, &mut self.env, &mut *self.out, expr)
+        let mut env = self.glob_env.extend();
+        eval_expr(
+            &mut self.glob_env,
+            &mut self.fuel,
+            &mut env,
+            &mut *self.out,
+            expr,
+        )
     }
 
     pub fn eval_prog(&mut self, prog: &ast::Prog) -> Result<(), RuntimeError> {
-        match eval_prog(&mut self.fuel, &mut self.env, &mut *self.out, prog)? {
-            ControlFlow::Cont => Ok(()),
-            ControlFlow::Break => panic!("unexpected break"),
-        }
+        let mut env = self.glob_env.extend();
+        eval_prog(
+            &mut self.glob_env,
+            &mut &mut self.fuel,
+            &mut env,
+            &mut *self.out,
+            prog,
+        )
     }
 }

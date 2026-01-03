@@ -229,7 +229,21 @@ FactorExpr : ast::Expr = {
 
 UnExpr : ast::Expr = {
     <op:UnOp> <e:UnExpr> => ast::Expr::Un(ast::UnExpr { op, e : Box::new(e) }),
-    PrimExpr,
+    CallExpr => <>
+}
+
+CallExpr : ast::Expr = {
+    PrimExpr => <>,
+    <callee:PrimExpr> "(" <args:Args?> ")" => 
+        ast::Expr::Call(ast::Call { callee : Box::new(callee), args : args.unwrap_or_default() })
+}
+
+Args : Vec<ast::Expr> = {
+    <first:Expr> <rest:("," <Expr>)*> => {
+        let mut args = vec![first];
+        args.extend(rest);
+        args
+    }
 }
 
 PrimExpr : ast::Expr = {

@@ -16,19 +16,19 @@ pub trait Pretty {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct NilLit;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BoolLit(pub bool);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct NumLit(pub f64);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StrLit(pub String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Lit {
     Nil(NilLit),
     Bool(BoolLit),
@@ -39,7 +39,7 @@ pub enum Lit {
 #[nutype(derive(Debug, Deref, Borrow, FromStr, Clone))]
 pub struct VarName(String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum UnOp {
     /// Negation (`-`)
     Neg,
@@ -47,7 +47,7 @@ pub enum UnOp {
     Not,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum EqOp {
     /// Equality (`==`)
     Eq,
@@ -55,7 +55,7 @@ pub enum EqOp {
     Ne,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum CmpOp {
     /// Less than (`<`)
     Lt,
@@ -67,13 +67,13 @@ pub enum CmpOp {
     Ge,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RelOp {
     Eq(EqOp),
     Cmp(CmpOp),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum AddOp {
     /// Addition (`+`)
     Add,
@@ -81,7 +81,7 @@ pub enum AddOp {
     Sub,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MulOp {
     /// Multiplication (`*`)
     Mul,
@@ -89,7 +89,7 @@ pub enum MulOp {
     Div,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum LogOp {
     /// Logical "or" aka disjunction
     Or,
@@ -97,7 +97,7 @@ pub enum LogOp {
     And,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinOp {
     Rel(RelOp),
     Add(AddOp),
@@ -105,47 +105,54 @@ pub enum BinOp {
     Log(LogOp),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnExpr {
     pub op: UnOp,
     pub e: Box<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinExpr {
     pub op: BinOp,
     pub l: Box<Expr>,
     pub r: Box<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Assign {
     pub name: VarName,
     pub val: Box<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct Call {
+    pub callee: Box<Expr>,
+    pub args: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     Lit(Lit),
     Un(UnExpr),
     Bin(BinExpr),
     Var(VarName),
     Assign(Assign),
+    Call(Call),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDecl {
     pub name: VarName,
     pub init: Option<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PrintStmt(pub Expr);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExprStmt(pub Expr);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Expr(ExprStmt),
     Print(PrintStmt),
@@ -156,23 +163,23 @@ pub enum Stmt {
     Break,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block(pub Vec<Stmt>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfStmt {
     pub cond: Expr,
     pub then: Stmt,
     pub else_: Option<Stmt>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WhileStmt {
     pub cond: Expr,
     pub body: Stmt,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Prog(pub Vec<Stmt>);
 
 // impls for each struct
@@ -340,6 +347,20 @@ impl Pretty for BinExpr {
     }
 }
 
+impl Pretty for Call {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { callee, args } = self;
+        callee.pretty(f)?;
+        for (i, arg) in args.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?
+            };
+            arg.pretty(f)?;
+        }
+        Ok(())
+    }
+}
+
 impl Pretty for Expr {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -348,6 +369,7 @@ impl Pretty for Expr {
             Self::Bin(x) => x.pretty(f),
             Self::Var(x) => x.pretty(f),
             Self::Assign(x) => x.pretty(f),
+            Self::Call(x) => x.pretty(f),
         }
     }
 }

@@ -3,23 +3,15 @@ use std::io;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum InvalidOperandTypeError {
-    #[error("cannot apply unary operator `-` on type `nil`")]
-    UnOpNegOnNil,
-    #[error("cannot apply unary operator `-` on type `bool`")]
-    UnOpNegOnBool,
-    #[error("cannot apply unary operator `-` on type `string`")]
-    UnOpNegOnStr,
-    #[error("cannot apply `==` or `!=`")]
-    EqOp,
-    #[error("cannot apply `<` or `<=` or `>` or `>=`")]
-    CmpOp,
-    #[error("cannot apply `+`")]
-    AddOpAdd,
-    #[error("cannot apply `-`")]
-    AddOpSub,
-    #[error("cannot apply `*` or `/`")]
-    MulOp,
+#[error("type error: '{msg}'")]
+pub struct TypeError {
+    pub msg: String,
+}
+
+#[derive(Error, Debug)]
+#[error("internal compiler error `{msg}`")]
+pub struct InternalCompilerError {
+    pub msg: String,
 }
 
 #[derive(Error, Debug)]
@@ -30,8 +22,6 @@ pub enum ArithmeticError {
 
 #[derive(Error, Debug)]
 pub enum RuntimeError {
-    #[error("invalid operand type; {0}")]
-    InvalidOperandType(#[from] InvalidOperandTypeError),
     #[error("arithmetic error; {0}")]
     Arithmetic(#[from] ArithmeticError),
     #[error("IO error; {0}")]
@@ -42,4 +32,10 @@ pub enum RuntimeError {
     Unimplemented,
     #[error("{0}")]
     Fuel(#[from] OutOfFuelError),
+    #[error("{0}")]
+    Type(#[from] TypeError),
+    #[error("internal error: `{0}`")]
+    Internal(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[error("{0}")]
+    Compiler(#[from] InternalCompilerError),
 }

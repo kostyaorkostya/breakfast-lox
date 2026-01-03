@@ -1,5 +1,5 @@
 mod runtime_error;
-pub use runtime_error::{ArithmeticError, InvalidOperandTypeError, RuntimeError};
+pub use runtime_error::{ArithmeticError, InternalCompilerError, RuntimeError, TypeError};
 
 mod interpreter;
 pub use interpreter::Interpreter;
@@ -24,6 +24,12 @@ use fuel::{Fuel, OutOfFuelError};
 
 mod control_flow;
 use control_flow::ControlFlow;
+
+mod func;
+use func::{Fn, NativeFn, UserFn};
+
+mod native_funcs;
+use native_funcs::native_fns;
 
 #[cfg(test)]
 mod tests;

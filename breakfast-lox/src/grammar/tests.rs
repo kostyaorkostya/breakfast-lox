@@ -121,7 +121,7 @@ mod num_literal {
 }
 
 mod prog {
-    use super::super::{CompileError, SyntaxError, parse_prog};
+    use super::super::parse_prog;
     use expect_test::expect;
 
     #[test]
