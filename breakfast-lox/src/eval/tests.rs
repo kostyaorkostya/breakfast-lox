@@ -533,6 +533,27 @@ mod prog {
         .assert_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_not_a_function_call() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            print "totally not a function"();
+        "#,
+            None,
+            None,
+        )
+        .unwrap_err();
+        expect![[r#"
+            Type(
+                TypeError {
+                    msg: "is not a function `Str(\"totally not a function\")`",
+                },
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {
