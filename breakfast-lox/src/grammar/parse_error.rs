@@ -50,7 +50,15 @@ pub enum NumLitParseError {
 }
 
 #[derive(Error, Debug)]
+#[error("too many arguments; got {got}, maximum is {max}")]
+pub struct TooManyArguments {
+    pub got: usize,
+    pub max: usize,
+}
+
+#[derive(Error, Debug)]
 #[error("parsing error")]
 pub enum ParseError {
     NumLit(#[from] NumLitParseError),
+    TooManyArgs(#[from] TooManyArguments),
 }

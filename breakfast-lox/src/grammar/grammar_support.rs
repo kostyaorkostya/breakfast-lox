@@ -1,9 +1,13 @@
 use super::parse_error::{
     DecimalFloatingPointLiteralParseError, HexadecimalFloatingPointLiteralParseError,
     IntegerLiteralParseError, NumLitParseError, NumberIsNotFiniteParseError, ParseError,
+    TooManyArguments,
 };
 use crate::ast;
 use std::str::FromStr;
+
+// https://craftinginterpreters.com/functions.html#maximum-argument-counts
+const MAX_ARG_COUNT: usize = 255;
 
 pub enum ForInit {
     VarDecl(ast::VarDecl),
@@ -99,5 +103,16 @@ pub fn parse_decimal_int_as_float(token: &str) -> Result<ast::NumLit, ParseError
                 token: token.into(),
             },
         ))?
+    }
+}
+
+pub fn validate_arg_count(got: usize) -> Result<(), ParseError> {
+    if got > MAX_ARG_COUNT {
+        Err(TooManyArguments {
+            got,
+            max: MAX_ARG_COUNT,
+        })?
+    } else {
+        Ok(())
     }
 }
