@@ -103,7 +103,7 @@ fn eval_call(
             if fn_.arity() != args.len() {
                 Err(TypeError {
                     msg: format!(
-                        "{} takes {} arguments, {} provided",
+                        "`{}` takes {} arguments, {} provided",
                         fn_.name(),
                         fn_.arity(),
                         args.len()

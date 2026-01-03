@@ -554,6 +554,27 @@ mod prog {
         .assert_debug_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_arity_mismatch_on_native_func() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            print clock("foo");
+        "#,
+            None,
+            None,
+        )
+        .unwrap_err();
+        expect![[r#"
+            Type(
+                TypeError {
+                    msg: "`clock` takes 0 arguments, 1 provided",
+                },
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {
