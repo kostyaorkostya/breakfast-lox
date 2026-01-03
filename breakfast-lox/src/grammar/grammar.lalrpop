@@ -251,10 +251,16 @@ Args : Vec<ast::Expr> = {
     }
 }
 
+Lambda : ast::Fun = {
+    KWRD_FUN "(" <params:Params?> ")" <body:Block> => 
+        ast::Fun { params : params.unwrap_or_default() , body }
+}
+
 PrimExpr : ast::Expr = {
     Lit => ast::Expr::Lit(<>),
     VarName => ast::Expr::Var(<>),
-    "(" <Expr> ")"
+    "(" <Expr> ")",
+    Lambda => ast::Expr::Fun(<>),
 }
 
 pub Prog : ast::Prog = {
@@ -302,7 +308,7 @@ RetStmt : ast::RetStmt = {
 
 FunDecl : ast::FunDecl = {
     KWRD_FUN <name:VarName> "(" <params:Params?> ")" <body:Block> =>
-      ast::FunDecl { name, params : params.unwrap_or_default(), body }
+      ast::FunDecl { name, fun : ast::Fun { params : params.unwrap_or_default(), body } }
 }
 
 Params : Vec<ast::VarName> = {

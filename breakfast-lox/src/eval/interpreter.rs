@@ -130,7 +130,7 @@ fn eval_call(
                 }) => {
                     let env = Env::extend(env);
                     for (name, arg) in zip(params, args) {
-                        env.borrow_mut().define(name.clone(), arg);
+                        env.borrow_mut().define(name.clone(), arg)?;
                     }
                     match eval_block(glob_env, fuel, &env, out, body)? {
                         ControlFlow::Ret(val) => Ok(val),
@@ -146,6 +146,29 @@ fn eval_call(
             }
         }
     }
+}
+
+fn eval_fun(
+    _glob_env: &EnvRef,
+    fuel: &mut Fuel,
+    env: &EnvRef,
+    _out: &mut dyn io::Write,
+    fun: &ast::Fun,
+    name: Option<VarName>,
+) -> Result<Val, RuntimeError> {
+    let ast::Fun { params, body } = fun;
+    fuel.burn()?;
+    let env = env.clone();
+    let params: Vec<VarName> = params.iter().cloned().map(Into::into).collect();
+    for param in params.iter().cloned() {
+        env.borrow_mut().declare(param);
+    }
+    Ok(Val::Fn(Rc::new(Fn::User(UserFn {
+        name: name.map(VarName::into_inner),
+        params,
+        body: body.clone(),
+        env,
+    }))))
 }
 
 fn eval_expr(
@@ -170,6 +193,7 @@ fn eval_expr(
         }
         ast::Expr::Assign(x) => eval_assign(glob_env, fuel, env, out, x),
         ast::Expr::Call(x) => eval_call(glob_env, fuel, env, out, x),
+        ast::Expr::Fun(x) => eval_fun(glob_env, fuel, env, out, x, None),
     }
 }
 
@@ -185,11 +209,11 @@ fn eval_var_decl(
         None => {
             fuel.burn()?;
             // Challenge 2 from https://craftinginterpreters.com/statements-and-state.html#challenges
-            env.borrow_mut().declare(name.clone().into())
+            env.borrow_mut().declare(name.clone().into())?
         }
         Some(init) => {
             let init = eval_expr(glob_env, fuel, env, out, init)?;
-            env.borrow_mut().define(name.clone().into(), init)
+            env.borrow_mut().define(name.clone().into(), init)?
         }
     }
     Ok(ControlFlow::Cont)
@@ -249,21 +273,15 @@ fn eval_while(
 }
 
 fn eval_fun_decl(
-    _glob_env: &EnvRef,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
     env: &EnvRef,
-    _out: &mut dyn io::Write,
+    out: &mut dyn io::Write,
     fun_decl: &ast::FunDecl,
 ) -> Result<ControlFlow, RuntimeError> {
-    let ast::FunDecl { name, params, body } = fun_decl;
+    let ast::FunDecl { name, fun } = fun_decl;
     let name: VarName = name.clone().into();
-    let val = Val::Fn(Rc::new(Fn::User(UserFn {
-        name: Some(name.clone().into_inner()),
-        params: params.iter().cloned().map(Into::into).collect(),
-        body: body.clone(),
-        env: env.clone(),
-    })));
-    fuel.burn()?;
+    let val = eval_fun(glob_env, fuel, env, out, fun, Some(name.clone()))?;
     env.borrow_mut().define(name, val);
     Ok(ControlFlow::Cont)
 }
@@ -344,21 +362,21 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    fn new_global_env(clock: Option<Rc<RefCell<f64>>>) -> EnvRef {
+    fn new_global_env(clock: Option<Rc<RefCell<f64>>>) -> Result<EnvRef, RuntimeError> {
         let env = Env::new();
         for x in native_fns(clock).into_iter().map(Fn::Native) {
             env.borrow_mut()
-                .define(VarName::new(x.name()), Val::Fn(Rc::new(x)))
+                .define(VarName::new(x.name()), Val::Fn(Rc::new(x)))?
         }
-        env
+        Ok(env)
     }
 
-    pub fn new(out: Box<dyn io::Write>) -> Self {
-        Self {
+    pub fn new(out: Box<dyn io::Write>) -> Result<Self, RuntimeError> {
+        Ok(Self {
             fuel: Fuel::Infinite,
             out,
-            glob_env: Self::new_global_env(None),
-        }
+            glob_env: Self::new_global_env(None)?,
+        })
     }
 
     #[cfg(test)]
@@ -366,7 +384,7 @@ impl Interpreter {
         out: Option<Rc<RefCell<Vec<u8>>>>,
         fuel: u64,
         clock: Option<Rc<RefCell<f64>>>,
-    ) -> Self {
+    ) -> Result<Self, RuntimeError> {
         struct SharedWriter(Rc<RefCell<Vec<u8>>>);
 
         impl io::Write for SharedWriter {
@@ -378,14 +396,14 @@ impl Interpreter {
                 self.0.borrow_mut().flush()
             }
         }
-        Self {
+        Ok(Self {
             fuel: Fuel::Finite(fuel),
             out: match out {
                 Some(x) => Box::new(SharedWriter(x)),
                 None => Box::new(io::sink()),
             },
-            glob_env: Self::new_global_env(clock),
-        }
+            glob_env: Self::new_global_env(clock)?,
+        })
     }
 
     #[cfg(test)]

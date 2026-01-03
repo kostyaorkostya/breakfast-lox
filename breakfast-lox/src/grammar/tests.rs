@@ -557,24 +557,26 @@ mod syntax {
                             name: VarName(
                                 "foo",
                             ),
-                            params: [],
-                            body: Block(
-                                [
-                                    Ret(
-                                        RetStmt(
-                                            Some(
-                                                Lit(
-                                                    Num(
-                                                        NumLit(
-                                                            33.0,
+                            fun: Fun {
+                                params: [],
+                                body: Block(
+                                    [
+                                        Ret(
+                                            RetStmt(
+                                                Some(
+                                                    Lit(
+                                                        Num(
+                                                            NumLit(
+                                                                33.0,
+                                                            ),
                                                         ),
                                                     ),
                                                 ),
                                             ),
                                         ),
-                                    ),
-                                ],
-                            ),
+                                    ],
+                                ),
+                            },
                         },
                     ),
                 ],

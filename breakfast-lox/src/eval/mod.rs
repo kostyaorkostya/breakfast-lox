@@ -17,7 +17,7 @@ mod var_name;
 use var_name::VarName;
 
 mod env;
-use env::{Env, EnvRef, UndefinedVariableError};
+use env::{Env, EnvRef, UndefinedVariableError, VariableRedeclarationError};
 
 mod fuel;
 use fuel::{Fuel, OutOfFuelError};

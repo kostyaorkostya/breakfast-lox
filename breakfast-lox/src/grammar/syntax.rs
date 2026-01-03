@@ -110,17 +110,26 @@ pub fn validate_var_decl(
     }
 }
 
+pub fn validate_fun(
+    in_func: bool,
+    loop_depth: usize,
+    fun_decl: &ast::Fun,
+) -> Result<(), SyntaxError> {
+    let ast::Fun { params, body } = fun_decl;
+    for param in params {
+        validate_var_name(in_func, loop_depth, param)?;
+    }
+    validate_block(true, loop_depth, body)
+}
+
 pub fn validate_fun_decl(
     in_func: bool,
     loop_depth: usize,
     fun_decl: &ast::FunDecl,
 ) -> Result<(), SyntaxError> {
-    let ast::FunDecl { name, params, body } = fun_decl;
+    let ast::FunDecl { name, fun } = fun_decl;
     validate_var_name(in_func, loop_depth, name)?;
-    for param in params {
-        validate_var_name(in_func, loop_depth, param)?;
-    }
-    validate_block(true, loop_depth, body)
+    validate_fun(in_func, loop_depth, fun)
 }
 
 pub fn validate_ret_stmt(

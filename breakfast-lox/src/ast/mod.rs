@@ -138,6 +138,7 @@ pub enum Expr {
     Var(VarName),
     Assign(Assign),
     Call(Call),
+    Fun(Fun),
 }
 
 #[derive(Debug, Clone)]
@@ -147,10 +148,15 @@ pub struct VarDecl {
 }
 
 #[derive(Debug, Clone)]
-pub struct FunDecl {
-    pub name: VarName,
+pub struct Fun {
     pub params: Vec<VarName>,
     pub body: Block,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunDecl {
+    pub name: VarName,
+    pub fun: Fun,
 }
 
 #[derive(Debug, Clone)]
@@ -382,6 +388,7 @@ impl Pretty for Expr {
             Self::Var(x) => x.pretty(f),
             Self::Assign(x) => x.pretty(f),
             Self::Call(x) => x.pretty(f),
+            Self::Fun(x) => write!(f, "fun {}", x.display()),
         }
     }
 }
@@ -417,10 +424,10 @@ impl Pretty for ExprStmt {
     }
 }
 
-impl Pretty for FunDecl {
+impl Pretty for Fun {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { name, params, body } = self;
-        write!(f, "fun {}(", name.display())?;
+        let Self { params, body } = self;
+        write!(f, "(")?;
         for (i, param) in params.iter().enumerate() {
             if i > 0 {
                 write!(f, ", ")?
@@ -429,6 +436,13 @@ impl Pretty for FunDecl {
         }
         writeln!(f, ")")?;
         body.pretty(f)
+    }
+}
+
+impl Pretty for FunDecl {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { name, fun } = self;
+        write!(f, "fun {}{}", name.display(), fun.display())
     }
 }
 

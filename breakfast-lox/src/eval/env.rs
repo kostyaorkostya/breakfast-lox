@@ -14,6 +14,12 @@ pub enum UndefinedVariableError {
     AccessUninitialized(String),
 }
 
+#[derive(Debug, Error)]
+#[error("variable redeclaration '{var_name}'")]
+pub struct VariableRedeclarationError {
+    var_name: String,
+}
+
 pub type EnvRef = Rc<RefCell<Env>>;
 
 #[derive(Debug, Default)]
@@ -35,12 +41,25 @@ impl Env {
         }))
     }
 
-    pub fn declare(&mut self, name: VarName) {
-        self.bindings.insert(name.into_inner(), None);
+    fn declare_or_define(
+        &mut self,
+        name: VarName,
+        val: Option<Val>,
+    ) -> Result<(), VariableRedeclarationError> {
+        let var_name = name.into_inner();
+        if self.bindings.contains_key(&var_name) {
+            return Err(VariableRedeclarationError { var_name });
+        }
+        self.bindings.insert(var_name, val);
+        Ok(())
     }
 
-    pub fn define(&mut self, name: VarName, val: Val) {
-        self.bindings.insert(name.into_inner(), Some(val));
+    pub fn declare(&mut self, name: VarName) -> Result<(), VariableRedeclarationError> {
+        self.declare_or_define(name, None)
+    }
+
+    pub fn define(&mut self, name: VarName, val: Val) -> Result<(), VariableRedeclarationError> {
+        self.declare_or_define(name, Some(val))
     }
 
     pub fn assign(&mut self, name: &str, val: Val) -> Result<(), UndefinedVariableError> {

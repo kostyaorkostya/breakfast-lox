@@ -18,7 +18,7 @@ fn parse_and_eval_expr(
     clock: Option<Rc<RefCell<f64>>>,
 ) -> anyhow::Result<Val> {
     let expr = parse_expr(expr)?;
-    Ok(Interpreter::new_for_test(None, resolve_fuel(fuel), clock).eval_expr(&expr)?)
+    Ok(Interpreter::new_for_test(None, resolve_fuel(fuel), clock)?.eval_expr(&expr)?)
 }
 
 fn parse_and_eval_prog(
@@ -28,7 +28,8 @@ fn parse_and_eval_prog(
 ) -> anyhow::Result<String> {
     let prog = parse_prog(prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
-    Interpreter::new_for_test(Some(Rc::clone(&buf)), resolve_fuel(fuel), clock).eval_prog(&prog)?;
+    Interpreter::new_for_test(Some(Rc::clone(&buf)), resolve_fuel(fuel), clock)?
+        .eval_prog(&prog)?;
     Ok(String::from_utf8(buf.borrow().clone())?)
 }
 
@@ -39,7 +40,7 @@ fn parse_and_eval_divergent_prog(
 ) -> anyhow::Result<String> {
     let prog = parse_prog(prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
-    match Interpreter::new_for_test(Some(Rc::clone(&buf)), fuel, clock).eval_prog(&prog) {
+    match Interpreter::new_for_test(Some(Rc::clone(&buf)), fuel, clock)?.eval_prog(&prog) {
         Err(RuntimeError::Fuel(OutOfFuelError)) => Ok(()),
         x @ (Err(_) | Ok(_)) => Err(anyhow::anyhow!("expected running out of fuel, got {x:?}")),
     }?;
@@ -66,7 +67,6 @@ mod bool_literals {
 mod prog {
     use super::{parse_and_eval_divergent_prog, parse_and_eval_prog};
     use expect_test::expect;
-    use std::any;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -645,6 +645,51 @@ mod prog {
             2
         "#]]
         .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lambda_functions() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            fun thrice(fn) {
+              for (var i = 1; i <= 3; i = i + 1) {
+                fn(i);
+              }
+            }
+
+            thrice(fun (a) {
+              print a;
+            });
+            // "1".
+            // "2".
+            // "3".
+        "#,
+            None,
+            None,
+        )?;
+        expect![[r#"
+            1
+            2
+            3
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_shadowing_function_parameter() -> anyhow::Result<()> {
+        // TODO(kostya): this should fail.
+        let actual = parse_and_eval_prog(
+            r#"
+            fun scope(a) {
+              var a = "local";
+            }
+        "#,
+            None,
+            None,
+        )?;
+        expect![""].assert_eq(&actual);
         Ok(())
     }
 }

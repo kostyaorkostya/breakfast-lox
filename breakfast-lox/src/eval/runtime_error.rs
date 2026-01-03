@@ -1,4 +1,4 @@
-use super::{OutOfFuelError, UndefinedVariableError};
+use super::{OutOfFuelError, UndefinedVariableError, VariableRedeclarationError};
 use std::io;
 use thiserror::Error;
 
@@ -38,4 +38,6 @@ pub enum RuntimeError {
     Internal(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
     #[error("{0}")]
     Compiler(#[from] InternalCompilerError),
+    #[error("{0}")]
+    VariableRedeclaration(#[from] VariableRedeclarationError),
 }
