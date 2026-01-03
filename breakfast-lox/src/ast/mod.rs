@@ -147,6 +147,13 @@ pub struct VarDecl {
 }
 
 #[derive(Debug, Clone)]
+pub struct FunDecl {
+    pub name: VarName,
+    pub params: Vec<VarName>,
+    pub body: Block,
+}
+
+#[derive(Debug, Clone)]
 pub struct PrintStmt(pub Expr);
 
 #[derive(Debug, Clone)]
@@ -161,7 +168,12 @@ pub enum Stmt {
     If(Box<IfStmt>),
     While(Box<WhileStmt>),
     Break,
+    FunDecl(FunDecl),
+    Ret(RetStmt),
 }
+
+#[derive(Debug, Clone)]
+pub struct RetStmt(pub Option<Expr>);
 
 #[derive(Debug, Clone)]
 pub struct Block(pub Vec<Stmt>);
@@ -405,6 +417,31 @@ impl Pretty for ExprStmt {
     }
 }
 
+impl Pretty for FunDecl {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { name, params, body } = self;
+        write!(f, "fun {}(", name.display())?;
+        for (i, param) in params.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?
+            };
+            param.pretty(f)?;
+        }
+        writeln!(f, ")")?;
+        body.pretty(f)
+    }
+}
+
+impl Pretty for RetStmt {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(val) = self;
+        match val {
+            Some(x) => writeln!(f, "return {};", x.display()),
+            None => writeln!(f, "return;"),
+        }
+    }
+}
+
 impl Pretty for Stmt {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -415,6 +452,8 @@ impl Pretty for Stmt {
             Self::If(x) => x.pretty(f),
             Self::While(x) => x.pretty(f),
             Self::Break => writeln!(f, "break;"),
+            Self::FunDecl(x) => x.pretty(f),
+            Self::Ret(x) => x.pretty(f),
         }
     }
 }

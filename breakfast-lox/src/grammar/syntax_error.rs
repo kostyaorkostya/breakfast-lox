@@ -6,4 +6,6 @@ pub enum SyntaxError {
     BreakOutsideLoop,
     #[error("reserved keyword: '{0}'")]
     ReservedKeyword(String),
+    #[error("return outside function")]
+    ReturnOutsideFunction,
 }

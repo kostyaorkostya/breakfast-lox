@@ -535,4 +535,52 @@ mod syntax {
         .assert_debug_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_return_not_in_a_function() -> anyhow::Result<()> {
+        let err = parse_prog("return;").unwrap_err();
+        assert!(matches!(
+            err,
+            CompileError::Syntax(SyntaxError::ReturnOutsideFunction)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn test_return_in_a_function() -> anyhow::Result<()> {
+        let actual = parse_prog("fun foo() { return 33; }")?;
+        expect![[r#"
+            Prog(
+                [
+                    FunDecl(
+                        FunDecl {
+                            name: VarName(
+                                "foo",
+                            ),
+                            params: [],
+                            body: Block(
+                                [
+                                    Ret(
+                                        RetStmt(
+                                            Some(
+                                                Lit(
+                                                    Num(
+                                                        NumLit(
+                                                            33.0,
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        },
+                    ),
+                ],
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
 }

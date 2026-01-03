@@ -2,7 +2,7 @@ use super::{
     ControlFlow, InternalCompilerError, NativeFn, RuntimeError, Stringify, Truthy, TypeError,
     UserFn, VarName,
 };
-use super::{Env, Fn, Fuel, Val, native_fns};
+use super::{Env, EnvRef, Fn, Fuel, Val, native_fns};
 use crate::ast;
 use std::cell::RefCell;
 use std::io;
@@ -10,9 +10,9 @@ use std::iter::zip;
 use std::rc::Rc;
 
 fn eval_un_expr(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     op: &ast::UnOp,
     e: &ast::Expr,
@@ -23,9 +23,9 @@ fn eval_un_expr(
 }
 
 fn eval_bin_expr(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     op: &ast::BinOp,
     l: &ast::Expr,
@@ -74,23 +74,23 @@ fn eval_bin_expr(
 }
 
 fn eval_assign(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     assign: &ast::Assign,
 ) -> Result<Val, RuntimeError> {
     let ast::Assign { name, val } = assign;
     let val = eval_expr(glob_env, fuel, env, out, val)?;
     fuel.burn()?;
-    env.assign(name, val.clone())?;
+    env.borrow_mut().assign(name, val.clone())?;
     Ok(val)
 }
 
 fn eval_call(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     call: &ast::Call,
 ) -> Result<Val, RuntimeError> {
@@ -119,19 +119,25 @@ fn eval_call(
             match &*fn_ {
                 Fn::Native(NativeFn { fn_, .. }) => {
                     fuel.burn()?;
-                    fn_(glob_env, &args)
+                    let env = Env::extend(&glob_env);
+                    fn_(&env, &args)
                 }
                 Fn::User(UserFn {
                     name: _,
                     params,
                     body,
+                    env,
                 }) => {
-                    let mut env = env.extend();
+                    let env = Env::extend(env);
                     for (name, arg) in zip(params, args) {
-                        env.define(name.clone(), arg);
+                        env.borrow_mut().define(name.clone(), arg);
                     }
-                    match eval_block(glob_env, fuel, &mut env, out, body)? {
-                        ControlFlow::Cont => Ok(Val::Nil),
+                    match eval_block(glob_env, fuel, &env, out, body)? {
+                        ControlFlow::Ret(val) => Ok(val),
+                        ControlFlow::Cont => {
+                            // https://craftinginterpreters.com/functions.html#return-statements
+                            Ok(Val::Nil)
+                        }
                         ControlFlow::Break => Err(InternalCompilerError {
                             msg: format!("break outside a loop, should have been a syntax error"),
                         })?,
@@ -143,9 +149,9 @@ fn eval_call(
 }
 
 fn eval_expr(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     expr: &ast::Expr,
 ) -> Result<Val, RuntimeError> {
@@ -160,7 +166,7 @@ fn eval_expr(
         }
         ast::Expr::Var(x) => {
             fuel.burn()?;
-            Ok(env.get(&**x)?)
+            Ok(env.borrow().get(&**x)?)
         }
         ast::Expr::Assign(x) => eval_assign(glob_env, fuel, env, out, x),
         ast::Expr::Call(x) => eval_call(glob_env, fuel, env, out, x),
@@ -168,9 +174,9 @@ fn eval_expr(
 }
 
 fn eval_var_decl(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     var_decl: &ast::VarDecl,
 ) -> Result<ControlFlow, RuntimeError> {
@@ -179,38 +185,38 @@ fn eval_var_decl(
         None => {
             fuel.burn()?;
             // Challenge 2 from https://craftinginterpreters.com/statements-and-state.html#challenges
-            env.declare(name.clone().into())
+            env.borrow_mut().declare(name.clone().into())
         }
         Some(init) => {
             let init = eval_expr(glob_env, fuel, env, out, init)?;
-            env.define(name.clone().into(), init)
+            env.borrow_mut().define(name.clone().into(), init)
         }
     }
     Ok(ControlFlow::Cont)
 }
 
 fn eval_block(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     block: &ast::Block,
 ) -> Result<ControlFlow, RuntimeError> {
     let ast::Block(stmts) = block;
-    let mut env = env.extend();
+    let env = Env::extend(env);
     for stmt in stmts {
-        match eval_stmt(glob_env, fuel, &mut env, out, stmt)? {
+        match eval_stmt(glob_env, fuel, &env, out, stmt)? {
+            x @ (ControlFlow::Break | ControlFlow::Ret(_)) => return Ok(x),
             ControlFlow::Cont => (),
-            ControlFlow::Break => return Ok(ControlFlow::Break),
         }
     }
     Ok(ControlFlow::Cont)
 }
 
 fn eval_if(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     if_: &ast::IfStmt,
 ) -> Result<ControlFlow, RuntimeError> {
@@ -225,26 +231,63 @@ fn eval_if(
 }
 
 fn eval_while(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     while_: &ast::WhileStmt,
 ) -> Result<ControlFlow, RuntimeError> {
     let ast::WhileStmt { cond, body } = while_;
     while eval_expr(glob_env, fuel, env, out, cond)?.truthy() {
         match eval_stmt(glob_env, fuel, env, out, body)? {
-            ControlFlow::Cont => (),
+            x @ ControlFlow::Ret(_) => return Ok(x),
             ControlFlow::Break => break,
+            ControlFlow::Cont => (),
         }
     }
     Ok(ControlFlow::Cont)
 }
 
-fn eval_stmt(
-    glob_env: &mut Env,
+fn eval_fun_decl(
+    _glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
+    _out: &mut dyn io::Write,
+    fun_decl: &ast::FunDecl,
+) -> Result<ControlFlow, RuntimeError> {
+    let ast::FunDecl { name, params, body } = fun_decl;
+    let name: VarName = name.clone().into();
+    let val = Val::Fn(Rc::new(Fn::User(UserFn {
+        name: Some(name.clone().into_inner()),
+        params: params.iter().cloned().map(Into::into).collect(),
+        body: body.clone(),
+        env: env.clone(),
+    })));
+    fuel.burn()?;
+    env.borrow_mut().define(name, val);
+    Ok(ControlFlow::Cont)
+}
+
+fn eval_return(
+    glob_env: &EnvRef,
+    fuel: &mut Fuel,
+    env: &EnvRef,
+    out: &mut dyn io::Write,
+    return_: &ast::RetStmt,
+) -> Result<ControlFlow, RuntimeError> {
+    let ast::RetStmt(val) = return_;
+    let val = match val {
+        None => Val::Nil,
+        Some(expr) => eval_expr(glob_env, fuel, env, out, expr)?,
+    };
+    fuel.burn()?;
+    Ok(ControlFlow::Ret(val))
+}
+
+fn eval_stmt(
+    glob_env: &EnvRef,
+    fuel: &mut Fuel,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     stmt: &ast::Stmt,
 ) -> Result<ControlFlow, RuntimeError> {
@@ -267,13 +310,15 @@ fn eval_stmt(
         ast::Stmt::If(x) => eval_if(glob_env, fuel, env, out, x),
         ast::Stmt::While(x) => eval_while(glob_env, fuel, env, out, x),
         ast::Stmt::Break => Ok(ControlFlow::Break),
+        ast::Stmt::FunDecl(x) => eval_fun_decl(glob_env, fuel, env, out, x),
+        ast::Stmt::Ret(x) => eval_return(glob_env, fuel, env, out, x),
     }
 }
 
 fn eval_prog(
-    glob_env: &mut Env,
+    glob_env: &EnvRef,
     fuel: &mut Fuel,
-    env: &mut Env,
+    env: &EnvRef,
     out: &mut dyn io::Write,
     prog: &ast::Prog,
 ) -> Result<(), RuntimeError> {
@@ -284,6 +329,9 @@ fn eval_prog(
             ControlFlow::Break => Err(InternalCompilerError {
                 msg: format!("break outside a loop, should have been a syntax error"),
             })?,
+            ControlFlow::Ret(x) => Err(InternalCompilerError {
+                msg: format!("return `{x:?}` outside a function, should have been a syntax error"),
+            })?,
         }
     }
     Ok(())
@@ -291,15 +339,16 @@ fn eval_prog(
 
 pub struct Interpreter {
     fuel: Fuel,
-    glob_env: Env,
+    glob_env: EnvRef,
     out: Box<dyn io::Write>,
 }
 
 impl Interpreter {
-    fn new_global_env(clock: Option<Rc<RefCell<f64>>>) -> Env {
-        let mut env = Env::new();
+    fn new_global_env(clock: Option<Rc<RefCell<f64>>>) -> EnvRef {
+        let env = Env::new();
         for x in native_fns(clock).into_iter().map(Fn::Native) {
-            env.define(VarName::new(x.name()), Val::Fn(Rc::new(x)))
+            env.borrow_mut()
+                .define(VarName::new(x.name()), Val::Fn(Rc::new(x)))
         }
         env
     }
@@ -341,7 +390,7 @@ impl Interpreter {
 
     #[cfg(test)]
     pub(super) fn eval_expr(&mut self, expr: &ast::Expr) -> Result<Val, RuntimeError> {
-        let mut env = self.glob_env.extend();
+        let mut env = Env::extend(&self.glob_env);
         eval_expr(
             &mut self.glob_env,
             &mut self.fuel,
@@ -352,7 +401,7 @@ impl Interpreter {
     }
 
     pub fn eval_prog(&mut self, prog: &ast::Prog) -> Result<(), RuntimeError> {
-        let mut env = self.glob_env.extend();
+        let mut env = Env::extend(&self.glob_env);
         eval_prog(
             &mut self.glob_env,
             &mut &mut self.fuel,

@@ -14,19 +14,21 @@ pub enum UndefinedVariableError {
     AccessUninitialized(String),
 }
 
+pub type EnvRef = Rc<RefCell<Env>>;
+
 #[derive(Debug, Default)]
-struct Inner {
+pub struct Env {
     // TODO(kostya): Once `Val` supports closures, `Env`s might form a loop that will leak.
-    enclosing: Option<Rc<RefCell<Inner>>>,
+    enclosing: Option<EnvRef>,
     bindings: HashMap<String, Option<Val>>,
 }
 
-impl Inner {
-    pub fn new() -> Rc<RefCell<Self>> {
+impl Env {
+    pub fn new() -> EnvRef {
         Rc::new(RefCell::new(Self::default()))
     }
 
-    pub fn extend(env: &Rc<RefCell<Self>>) -> Rc<RefCell<Self>> {
+    pub fn extend(env: &EnvRef) -> EnvRef {
         Rc::new(RefCell::new(Self {
             enclosing: Some(Rc::clone(env)),
             ..Self::default()
@@ -63,34 +65,5 @@ impl Inner {
                 Some(env) => env.borrow_mut().get(name),
             },
         }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Env(Rc<RefCell<Inner>>);
-
-impl Env {
-    pub fn new() -> Self {
-        Self(Inner::new())
-    }
-
-    pub fn extend(&self) -> Self {
-        Self(Inner::extend(&self.0))
-    }
-
-    pub fn declare(&mut self, name: VarName) {
-        self.0.borrow_mut().declare(name);
-    }
-
-    pub fn define(&mut self, name: VarName, val: Val) {
-        self.0.borrow_mut().define(name, val);
-    }
-
-    pub fn assign(&mut self, name: &str, val: Val) -> Result<(), UndefinedVariableError> {
-        self.0.borrow_mut().assign(name, val)
-    }
-
-    pub fn get(&self, name: &str) -> Result<Val, UndefinedVariableError> {
-        self.0.borrow().get(name)
     }
 }

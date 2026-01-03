@@ -1,12 +1,12 @@
 use std::ops;
 
-use super::{Env, RuntimeError, Stringify, Val, VarName};
+use super::{EnvRef, RuntimeError, Stringify, Val, VarName};
 use crate::ast;
 
 pub struct NativeFn {
     name: String,
     arity: usize,
-    pub fn_: Box<dyn ops::Fn(&mut Env, &[Val]) -> Result<Val, RuntimeError>>,
+    pub fn_: Box<dyn ops::Fn(&EnvRef, &[Val]) -> Result<Val, RuntimeError>>,
 }
 
 impl std::fmt::Debug for NativeFn {
@@ -22,7 +22,7 @@ impl std::fmt::Debug for NativeFn {
 impl NativeFn {
     pub fn new<const ARITY: usize>(
         name: String,
-        fn_: impl ops::Fn(&mut Env, &[Val; ARITY]) -> Result<Val, RuntimeError> + 'static,
+        fn_: impl ops::Fn(&EnvRef, &[Val; ARITY]) -> Result<Val, RuntimeError> + 'static,
     ) -> Self {
         Self {
             name,
@@ -37,6 +37,7 @@ pub struct UserFn {
     pub name: Option<String>,
     pub params: Vec<VarName>,
     pub body: ast::Block,
+    pub env: EnvRef,
 }
 
 #[derive(Debug)]

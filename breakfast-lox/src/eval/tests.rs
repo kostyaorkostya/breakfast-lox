@@ -66,6 +66,7 @@ mod bool_literals {
 mod prog {
     use super::{parse_and_eval_divergent_prog, parse_and_eval_prog};
     use expect_test::expect;
+    use std::any;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -573,6 +574,77 @@ mod prog {
             )
         "#]]
         .assert_debug_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_function_hello_world() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            fun hello_world() {
+              return "Hello world!";
+            }
+
+            print hello_world();
+        "#,
+            None,
+            None,
+        )?;
+        expect![[r#"
+            Hello world!
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_trivial_function() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            fun procedure() {
+              print "don't return anything";
+            }
+
+            var result = procedure();
+            print result; // ?
+        "#,
+            None,
+            None,
+        )?;
+        expect![[r#"
+            don't return anything
+            nil
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
+    fn test_function_make_counter() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            fun makeCounter() {
+              var i = 0;
+              fun count() {
+                i = i + 1;
+                print i;
+              }
+
+              return count;
+            }
+
+            var counter = makeCounter();
+            counter(); // "1".
+            counter(); // "2".
+        "#,
+            None,
+            None,
+        )?;
+        expect![[r#"
+            1
+            2
+        "#]]
+        .assert_eq(&actual);
         Ok(())
     }
 }
