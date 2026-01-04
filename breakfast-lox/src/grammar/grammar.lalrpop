@@ -5,6 +5,9 @@ use super::grammar_support::{
 
 // Full grammar as per https://craftinginterpreters.com/appendix-i.html
 //
+// Note that this is a grammar for "vanilla" Lox, it doesn't cover some things like lambda
+// functions.
+//
 // program        → declaration* EOF ;
 // declaration    → classDecl
 //                | funDecl
