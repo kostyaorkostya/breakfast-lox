@@ -112,6 +112,28 @@ mod prog {
     }
 
     #[test]
+    fn test_variable_redeclaration() -> anyhow::Result<()> {
+        let actual = parse_and_eval_prog(
+            r#"
+            var a;
+            var a;
+        "#,
+            None,
+            None,
+        )
+        .unwrap_err();
+        expect![[r#"
+            VariableRedeclaration(
+                VariableRedeclarationError {
+                    var_name: "a",
+                },
+            )
+        "#]]
+        .assert_debug_eq(&actual);
+        Ok(())
+    }
+
+    #[test]
     fn test_referencing_unknown_variable() -> anyhow::Result<()> {
         let actual = parse_and_eval_prog(
             r#"
@@ -698,7 +720,8 @@ mod prog {
                     var_name: "a",
                 },
             )
-        "#]].assert_debug_eq(&actual);
+        "#]]
+        .assert_debug_eq(&actual);
         Ok(())
     }
 }
