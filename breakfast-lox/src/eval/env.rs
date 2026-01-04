@@ -26,6 +26,7 @@ pub type EnvRef = Rc<RefCell<Env>>;
 pub struct Env {
     // TODO(kostya): Once `Val` supports closures, `Env`s might form a loop that will leak.
     enclosing: Option<EnvRef>,
+    // `None` means variable is declared, but not defined.
     bindings: HashMap<String, Option<Val>>,
 }
 
