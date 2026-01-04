@@ -4,6 +4,11 @@ mod pretty;
 #[cfg(test)]
 use pretty::Pretty;
 
+mod node_id;
+pub use node_id::{NodeId, NodeIdGen, SeqNodeIdGen};
+mod node;
+pub use node::Node;
+
 #[derive(Debug, Clone, Copy)]
 pub struct NilLit;
 
@@ -95,98 +100,98 @@ pub enum BinOp {
 
 #[derive(Debug, Clone)]
 pub struct UnExpr {
-    pub op: UnOp,
-    pub e: Box<Expr>,
+    pub op: Node<UnOp>,
+    pub e: Box<Node<Expr>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct BinExpr {
-    pub op: BinOp,
-    pub l: Box<Expr>,
-    pub r: Box<Expr>,
+    pub op: Node<BinOp>,
+    pub l: Box<Node<Expr>>,
+    pub r: Box<Node<Expr>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Assign {
-    pub name: VarName,
-    pub val: Box<Expr>,
+    pub name: Node<VarName>,
+    pub val: Box<Node<Expr>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Call {
-    pub callee: Box<Expr>,
-    pub args: Vec<Expr>,
+    pub callee: Box<Node<Expr>>,
+    pub args: Vec<Node<Expr>>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Lit(Lit),
-    Un(UnExpr),
-    Bin(BinExpr),
-    Var(VarName),
-    Assign(Assign),
-    Call(Call),
-    Fun(Fun),
+    Lit(Node<Lit>),
+    Un(Node<UnExpr>),
+    Bin(Node<BinExpr>),
+    Var(Node<VarName>),
+    Assign(Node<Assign>),
+    Call(Node<Call>),
+    Fun(Node<Fun>),
 }
 
 #[derive(Debug, Clone)]
 pub struct VarDecl {
-    pub name: VarName,
-    pub init: Option<Expr>,
+    pub name: Node<VarName>,
+    pub init: Option<Node<Expr>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Fun {
-    pub params: Vec<VarName>,
-    pub body: Block,
+    pub params: Vec<Node<VarName>>,
+    pub body: Node<Block>,
 }
 
 #[derive(Debug, Clone)]
 pub struct FunDecl {
-    pub name: VarName,
+    pub name: Node<VarName>,
     pub fun: Fun,
 }
 
 #[derive(Debug, Clone)]
-pub struct PrintStmt(pub Expr);
+pub struct PrintStmt(pub Node<Expr>);
 
 #[derive(Debug, Clone)]
-pub struct ExprStmt(pub Expr);
+pub struct ExprStmt(pub Node<Expr>);
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Expr(ExprStmt),
-    Print(PrintStmt),
-    VarDecl(VarDecl),
-    Block(Box<Block>),
-    If(Box<IfStmt>),
-    While(Box<WhileStmt>),
-    Break,
-    FunDecl(FunDecl),
-    Ret(RetStmt),
+    Expr(Node<ExprStmt>),
+    Print(Node<PrintStmt>),
+    VarDecl(Node<VarDecl>),
+    Block(Node<Block>),
+    If(Node<IfStmt>),
+    While(Node<WhileStmt>),
+    Break(Node<()>),
+    FunDecl(Node<FunDecl>),
+    Ret(Node<RetStmt>),
 }
 
 #[derive(Debug, Clone)]
-pub struct RetStmt(pub Option<Expr>);
+pub struct RetStmt(pub Option<Node<Expr>>);
 
 #[derive(Debug, Clone)]
-pub struct Block(pub Vec<Stmt>);
+pub struct Block(pub Vec<Node<Stmt>>);
 
 #[derive(Debug, Clone)]
 pub struct IfStmt {
-    pub cond: Expr,
-    pub then: Stmt,
-    pub else_: Option<Stmt>,
+    pub cond: Node<Expr>,
+    pub then: Box<Node<Stmt>>,
+    pub else_: Option<Box<Node<Stmt>>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct WhileStmt {
-    pub cond: Expr,
-    pub body: Stmt,
+    pub cond: Node<Expr>,
+    pub body: Box<Node<Stmt>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Prog(pub Vec<Stmt>);
+pub struct Prog(pub Vec<Node<Stmt>>);
 
 // impls for each struct
 

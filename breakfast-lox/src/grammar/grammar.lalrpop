@@ -66,7 +66,7 @@ use super::grammar_support::{
 // ALPHA          → "a" ... "z" | "A" ... "Z" | "_" ;
 // DIGIT          → "0" ... "9" ;
 
-grammar;
+grammar(ids: &mut dyn ast::NodeIdGen);
 
 extern {
     type Error = parse_error::ParseError;
@@ -125,46 +125,74 @@ StrLit : ast::StrLit = {
     STRING => ast::StrLit::from_raw(<>),
 }
 
-Lit : ast::Lit = {
-    NilLit => ast::Lit::Nil(<>),
-    BoolLit => ast::Lit::Bool(<>),
-    NumLit => ast::Lit::Num(<>),
-    StrLit => ast::Lit::Str(<>),
+Lit : ast::Node<ast::Lit> = {
+    <start: @L> NilLit <end: @R> =>
+        ids.new_node(start..end, ast::Lit::Nil(<>)),
+    <start: @L> BoolLit <end: @R> =>
+        ids.new_node(start..end, ast::Lit::Bool(<>)),
+    <start: @L> NumLit <end: @R> =>
+        ids.new_node(start..end, ast::Lit::Num(<>)),
+    <start: @L> StrLit <end: @R> =>
+        ids.new_node(start..end, ast::Lit::Str(<>)),
 }
 
-VarName : ast::VarName = {
-    IDENTIFIER => ast::VarName::new(<>),
+VarName : ast::Node<ast::VarName> = {
+    <start: @L> IDENTIFIER <end: @R> =>
+        ids.new_node(start..end, ast::VarName::new(<>)),
 }
 
-UnOp : ast::UnOp = {
-    "-" => ast::UnOp::Neg,
-    "!" => ast::UnOp::Not,
+UnOp : ast::Node<ast::UnOp> = {
+    <start: @L> "-" <end: @R> =>
+        ids.new_node(start..end, ast::UnOp::Neg),
+    <start: @L> "!" <end: @R> =>
+        ids.new_node(start..end, ast::UnOp::Not),
 }
 
-EqOp : ast::EqOp = {
-    "==" => ast::EqOp::Eq,
-    "!=" => ast::EqOp::Ne,
+EqOp : ast::Node<ast::BinOp> = {
+    <start: @L> "==" <end: @R> => 
+        ids.new_node(start..end, ast::BinOp::Rel(ast::RelOp::Eq(ast::EqOp::Eq))),
+    <start: @L> "!=" <end: @R> => 
+        ids.new_node(start..end, ast::BinOp::Rel(ast::RelOp::Eq(ast::EqOp::Ne))),
 }
 
-CmpOp : ast::CmpOp = {
-    "<" => ast::CmpOp::Lt,
-    "<=" => ast::CmpOp::Le,
-    ">" => ast::CmpOp::Gt,
-    ">=" => ast::CmpOp::Ge,
+CmpOp : ast::Node<ast::BinOp> = {
+    <start: @L> "<" <end: @R> =>
+        ids.new_node(start..end, ast::BinOp::Rel(ast::RelOp::Cmp(ast::CmpOp::Lt))),
+    <start: @L> "<=" <end: @R> => 
+        ids.new_node(start..end, ast::BinOp::Rel(ast::RelOp::Cmp(ast::CmpOp::Le))),
+    <start: @L> ">" <end: @R> => 
+        ids.new_node(start..end, ast::BinOp::Rel(ast::RelOp::Cmp(ast::CmpOp::Gt))),
+    <start: @L> ">=" <end: @R> => 
+        ids.new_node(start..end, ast::BinOp::Rel(ast::RelOp::Cmp(ast::CmpOp::Ge))),
 }
 
-AddOp : ast::AddOp = {
-    "+" => ast::AddOp::Add,
-    "-" => ast::AddOp::Sub,
+AddOp : ast::Node<ast::BinOp> = {
+    <start: @L> "+" <end: @R> =>
+        ids.new_node(start..end, ast::BinOp::Add(ast::AddOp::Add)),
+    <start: @L> "-" <end: @R> =>
+        ids.new_node(start..end, ast::BinOp::Add(ast::AddOp::Sub)),
 }
 
-MulOp : ast::MulOp = {
-    "*" => ast::MulOp::Mul,
-    "/" => ast::MulOp::Div,
+MulOp : ast::Node<ast::BinOp> = {
+    <start: @L> "*" <end: @R> =>
+        ids.new_node(start..end, ast::BinOp::Mul(ast::MulOp::Mul)),
+    <start: @L> "/" <end: @R> =>
+        ids.new_node(start..end, ast::BinOp::Mul(ast::MulOp::Div)),
 }
 
-pub Expr : ast::Expr = {
-    Assign => ast::Expr::Assign(<>),
+LogOpOr : ast::Node<ast::BinOp> = {
+    <start: @L> KWRD_OR <end: @R> =>
+        ids.new_node(start..end, ast::BinOp::Log(ast::LogOp::Or)),
+}
+
+LogOpAnd : ast::Node<ast::BinOp> = {
+    <start: @L> KWRD_AND <end: @R> =>
+        ids.new_node(start..end, ast::BinOp::Log(ast::LogOp::And)),
+}
+
+pub Expr : ast::Node<ast::Expr> = {
+    <start: @L> Assign <end: @R> =>
+        ids.new_node(start..end, ast::Expr::Assign(<>)),
     LogOr,
 }
 
@@ -172,81 +200,79 @@ Assign : ast::Assign = {
     <name:VarName> "=" <val:Expr> => ast::Assign { name , val : Box::new(val) },
 }
 
-LogOr : ast::Expr = {
+LogOr : ast::Node<ast::Expr> = {
     LogAnd,
-    <l:LogOr> KWRD_OR <r:LogAnd> => {
-        let op = ast::BinOp::Log(ast::LogOp::Or);
+    <start: @L> <l:LogOr> <op:LogOpOr> <r:LogAnd> <end: @R> => {
         let l = Box::new(l);
         let r = Box::new(r);
-        ast::Expr::Bin(ast::BinExpr { op, l, r })
+        ids.new_node(start..end, ast::Expr::Bin(ast::BinExpr { op, l, r }))
     },
 }
 
-LogAnd : ast::Expr = {
+LogAnd : ast::Node<ast::Expr> = {
     EqExpr,
-    <l:LogAnd> KWRD_AND <r:EqExpr> => {
-        let op = ast::BinOp::Log(ast::LogOp::And);
+    <start: @L> <l:LogAnd> <op:LogOpAnd> <r:EqExpr> <end: @R> => {
         let l = Box::new(l);
         let r = Box::new(r);
-        ast::Expr::Bin(ast::BinExpr { op, l, r })
+        ids.new_node(start..end, ast::Expr::Bin(ast::BinExpr { op, l, r }))
     },
 }
 
-EqExpr : ast::Expr = {
-    <l:EqExpr> <op:EqOp> <r:CmpExpr> => {
-        let op = ast::BinOp::Rel(ast::RelOp::Eq(op));
+EqExpr : ast::Node<ast::Expr> = {
+    <start: @L> <l:EqExpr> <op:EqOp> <r:CmpExpr> <end: @R> => {
         let l = Box::new(l);
         let r = Box::new(r);
-        ast::Expr::Bin(ast::BinExpr { op, l, r })
+        ids.new_node(start..end, ast::Expr::Bin(ast::BinExpr { op, l, r }))
     },
     CmpExpr,
 }
 
-CmpExpr : ast::Expr = {
-    <l:TermExpr> <op:CmpOp> <r:CmpExpr> => {
-        let op = ast::BinOp::Rel(ast::RelOp::Cmp(op));
+CmpExpr : ast::Node<ast::Expr> = {
+    <start: @L> <l:TermExpr> <op:CmpOp> <r:CmpExpr> <end: @R> => {
         let l = Box::new(l);
         let r = Box::new(r);
-        ast::Expr::Bin(ast::BinExpr { op, l, r })
+        ids.new_node(start..end, ast::Expr::Bin(ast::BinExpr { op, l, r }))
     },
     TermExpr, 
 }
 
-TermExpr : ast::Expr = {
-    <l:FactorExpr> <op:AddOp> <r:TermExpr> => {
-        let op = ast::BinOp::Add(op);
+TermExpr : ast::Node<ast::Expr> = {
+    <start: @L> <l:FactorExpr> <op:AddOp> <r:TermExpr> <end: @R> => {
         let l = Box::new(l);
         let r = Box::new(r);
-        ast::Expr::Bin(ast::BinExpr { op, l, r})
+        ids.new_node(start..end, ast::Expr::Bin(ast::BinExpr { op, l, r }))
     },
     FactorExpr ,
 }
 
-FactorExpr : ast::Expr = {
-    <l:UnExpr> <op:MulOp> <r:FactorExpr> => {
-        let op = ast::BinOp::Mul(op);
+FactorExpr : ast::Node<ast::Expr> = {
+    <start: @L> <l:UnExpr> <op:MulOp> <r:FactorExpr> <end: @R> => {
         let l = Box::new(l);
         let r = Box::new(r);
-        ast::Expr::Bin(ast::BinExpr { op, l, r })
+        ids.new_node(start..end, ast::Expr::Bin(ast::BinExpr { op, l, r }))
     },
     UnExpr,
 }
 
-UnExpr : ast::Expr = {
-    <op:UnOp> <e:UnExpr> => ast::Expr::Un(ast::UnExpr { op, e : Box::new(e) }),
+UnExpr : ast::Node<ast::Expr> = {
+    <start: @L> <op:UnOp> <e:UnExpr> <end: @R> => {
+        let e = Box::new(e);
+        ids.new_node(start..end, ast::Expr::Un(ast::UnExpr { op, e }))
+    }
     CallExpr => <>
 }
 
-CallExpr : ast::Expr = {
+CallExpr : ast::Node<ast::Expr> = {
     PrimExpr => <>,
-    <callee:PrimExpr> "(" <args:Args?> ")" =>? {
+    <start: @L> <callee:PrimExpr> "(" <args:Args?> ")" <end: @R> =>? {
+        let callee = Box::new(callee);
         let args =  args.unwrap_or_default();
         validate_arg_count(args.len())?;
-        Ok(ast::Expr::Call(ast::Call { callee : Box::new(callee), args  }))
+        Ok(ids.new_node(start..end, ast::Expr::Call(ast::Call { callee , args  })))
     }
 }
 
-Args : Vec<ast::Expr> = {
+Args : Vec<ast::Node<ast::Expr>> = {
     <first:Expr> <rest:("," <Expr>)*> => {
         let mut args = vec![first];
         args.extend(rest);
@@ -254,67 +280,95 @@ Args : Vec<ast::Expr> = {
     }
 }
 
-Lambda : ast::Fun = {
-    KWRD_FUN "(" <params:Params?> ")" <body:Block> => 
-        ast::Fun { params : params.unwrap_or_default() , body }
+Lambda : ast::Node<ast::Fun> = {
+    <start: @L> KWRD_FUN "(" <params:Params?> ")" <body:Block> <end: @R> => {
+        let params = params.unwrap_or_default();
+        ids.new_node(start..end, ast::Fun { params, body })
+    }
 }
 
-PrimExpr : ast::Expr = {
-    Lit => ast::Expr::Lit(<>),
-    VarName => ast::Expr::Var(<>),
+PrimExpr : ast::Node<ast::Expr> = {
+    <start: @L> <lit:Lit> <end: @R> =>
+        ids.new_node(start..end, ast::Expr::Lit(lit)),
+    <start: @L> <var_name:VarName> <end: @R> =>
+        ids.new_node(start..end, ast::Expr::Var(var_name)),
     "(" <Expr> ")",
-    Lambda => ast::Expr::Fun(<>),
+    <start: @L> <lambda:Lambda> <end: @R> =>
+        ids.new_node(start..end, ast::Expr::Fun(lambda)),
 }
 
-pub Prog : ast::Prog = {
-    DeclStmt* => ast::Prog(<>),
+pub Prog : ast::Node<ast::Prog> = {
+    <start: @L> <stmts:DeclStmt*> <end: @R> => 
+        ids.new_node(start..end, ast::Prog(stmts)),
 }
 
-Stmt : ast::Stmt = {
+Stmt : ast::Node<ast::Stmt> = {
     MatchedStmt,
     UnmatchedStmt,
 }
 
-NonIfWhileForStmt : ast::Stmt = {
-    ExprStmt => ast::Stmt::Expr(<>),
-    PrintStmt => ast::Stmt::Print(<>),
-    Block => ast::Stmt::Block(Box::new(<>)),
-    KWRD_BREAK ";" => ast::Stmt::Break,
+NonIfWhileForStmt : ast::Node<ast::Stmt> = {
+    <start: @L> <expr:ExprStmt> <end: @R> =>
+        ids.new_node(start..end, ast::Stmt::Expr(expr)),
+    <start: @L> <print:PrintStmt> <end: @R> =>
+        ids.new_node(start..end, ast::Stmt::Print(print)),
+    <start: @L> <block:Block> <end: @R> =>
+        ids.new_node(start..end, ast::Stmt::Block(block)),
+    <start: @L> KWRD_BREAK ";" <end: @R> =>
+        ids.new_node(start..end, ast::Stmt::Break),
     FunDecl => ast::Stmt::FunDecl(<>),
     RetStmt => ast::Stmt::Ret(<>),
 }
 
-MatchedStmt : ast::Stmt = { 
+MatchedStmt : ast::Node<ast::Stmt> = { 
     NonIfWhileForStmt,
-    KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:MatchedStmt> =>
-        ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: Some(else_) })),
-    KWRD_WHILE "(" <cond:Expr> ")" <body:MatchedStmt> =>
-        ast::Stmt::While(Box::new(ast::WhileStmt { cond, body })),
-    KWRD_FOR "(" <init:ForInit> <cond:Expr?> ";" <incr:Expr?> ")" <body:MatchedStmt> => 
-        desugar_for_stmt(init, cond, incr, body),
+    <start: @L> KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:MatchedStmt> <end: @R> => {
+        let if_ = ast::IfStmt { cond, then : Box::new(then), else_: Some(Box::new(else_)) };
+        let if_ = ids.new_node(start..end, if_);
+        ast::Stmt::If(if_)
+    }
+    <start: @L> KWRD_WHILE "(" <cond:Expr> ")" <body:MatchedStmt> <end: @R> => {
+        let while_ = ast::WhileStmt { cond, body : Box::new(body) };
+        let while_ = ids.new_node(start..end, while_);
+        ast::Stmt::While(while_)
+    }
+    <start: @L> KWRD_FOR "(" <init:ForInit> <cond:Expr?> ";" <incr:Expr?> ")" <body:MatchedStmt> <end: @R> =>
+        desugar_for_stmt(ids, start..end, init, cond, incr, body),
 }
 
-UnmatchedStmt : ast::Stmt = {
-    KWRD_IF "(" <cond:Expr> ")" <then:Stmt> =>
-        ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: None })),
-    KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:UnmatchedStmt> =>
-        ast::Stmt::If(Box::new(ast::IfStmt { cond, then, else_: Some(else_) })),
-    KWRD_WHILE "(" <cond:Expr> ")" <body:UnmatchedStmt> =>
-        ast::Stmt::While(Box::new(ast::WhileStmt { cond, body })),
-    KWRD_FOR "(" <init:ForInit> <cond:Expr?> ";" <incr:Expr?> ")" <body:UnmatchedStmt> => 
-        desugar_for_stmt(init, cond, incr, body),
+UnmatchedStmt : ast::Node<ast::Stmt> = {
+    <start: @L> KWRD_IF "(" <cond:Expr> ")" <then:Stmt> <end: @R> => {
+        let if_ = ast::IfStmt { cond, then : Box::new(then), else_: None };
+        let if_ = ids.new_node(start..end, if_);
+        ast::Stmt::If(if_)
+    }
+    <start: @L> KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:UnmatchedStmt> <end: @R> => {
+        let if_ = ast::IfStmt { cond, then : Box::new(then), else_: Some(Box::new(else_)) };
+        let if_ = ids.new_node(start..end, if_);
+        ast::Stmt::If(if_)
+    }
+    <start: @L> KWRD_WHILE "(" <cond:Expr> ")" <body:UnmatchedStmt> <end: @R> => {
+        let while_ = ast::WhileStmt { cond, body : Box::new(body)};
+        let while_ = ids.new_node(start..end, while_);
+        ast::Stmt::While(while_)
+    }
+    <start: @L> KWRD_FOR "(" <init:ForInit> <cond:Expr?> ";" <incr:Expr?> ")" <body:UnmatchedStmt> <end: @R> => 
+        desugar_for_stmt(ids, start..end, init, cond, incr, body),
 }
 
-RetStmt : ast::RetStmt = {
-    KWRD_RETURN <expr:Expr?> ";" => ast::RetStmt(expr),
+RetStmt : ast::Node<ast::RetStmt> = {
+    <start: @L> KWRD_RETURN <expr:Expr?> ";" <end: @R> =>
+        ids.new_node(start..end, ast::RetStmt(expr)),
 }
 
-FunDecl : ast::FunDecl = {
-    KWRD_FUN <name:VarName> "(" <params:Params?> ")" <body:Block> =>
-      ast::FunDecl { name, fun : ast::Fun { params : params.unwrap_or_default(), body } }
+FunDecl : ast::Node<ast::FunDecl> = {
+    <start: @L> KWRD_FUN <name:VarName> "(" <params:Params?> ")" <body:Block> <end: @R> => {
+        let fun =  ast::Fun { params : params.unwrap_or_default(), body };
+        ids.new_node(start..end, ast::FunDecl { name, fun  })
+    }
 }
 
-Params : Vec<ast::VarName> = {
+Params : Vec<ast::Node<ast::VarName>> = {
     <first:VarName> <rest:("," <VarName>)*> => {
         let mut params = vec![first];
         params.extend(rest);
@@ -328,18 +382,16 @@ ForInit : Option<ForInit> = {
     ";" => None
 }
 
-VarDecl : ast::VarDecl = {
-    KWRD_VAR <name:VarName> <init:("=" <Expr>)?> ";" => ast::VarDecl { name , init },
+VarDecl : ast::Node<ast::VarDecl> = {
+    <start: @L> KWRD_VAR <name:VarName> <init:("=" <Expr>)?> ";" <end: @R> => 
+        ids.new_node(start..end, ast::VarDecl { name , init })
 }
 
 
-DeclStmt : ast::Stmt = {
-    VarDecl => ast::Stmt::VarDecl(<>),
+DeclStmt : ast::Node<ast::Stmt> = {
+    <start: @L> VarDecl <end: @R> =>
+        ids.new_node(start..end, ast::Stmt::VarDecl(<>)),
     Stmt,
-}
-
-WhileStmt : ast::WhileStmt = {
-    KWRD_WHILE "(" <cond:Expr> ")" <body:Stmt> => ast::WhileStmt { cond, body },
 }
 
 Block : ast::Block = {

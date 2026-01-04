@@ -14,12 +14,12 @@ fn eval_un_expr(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    op: &ast::UnOp,
-    e: &ast::Expr,
+    expr: &ast::Node<ast::UnExpr>,
 ) -> Result<Val, RuntimeError> {
+    let ast::UnExpr { op, e } = &expr.kind;
     let val = eval_expr(glob_env, fuel, env, out, &e)?;
     fuel.burn()?;
-    Ok(val.eval_un_op(op)?)
+    Ok(val.eval_un_op(&op.kind)?)
 }
 
 fn eval_bin_expr(
@@ -27,31 +27,30 @@ fn eval_bin_expr(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    op: &ast::BinOp,
-    l: &ast::Expr,
-    r: &ast::Expr,
+    expr: &ast::Node<ast::BinExpr>,
 ) -> Result<Val, RuntimeError> {
-    let l = eval_expr(glob_env, fuel, env, out, &l)?;
-    match op {
+    let ast::BinExpr { op, l, r } = &expr.kind;
+    let l = eval_expr(glob_env, fuel, env, out, l)?;
+    match op.kind {
         ast::BinOp::Rel(ast::RelOp::Eq(op)) => {
-            let r = eval_expr(glob_env, fuel, env, out, &r)?;
+            let r = eval_expr(glob_env, fuel, env, out, r)?;
             fuel.burn()?;
-            Ok(Val::Bool(l.eval_eq_op(op, &r)))
+            Ok(Val::Bool(l.eval_eq_op(&op, &r)))
         }
         ast::BinOp::Rel(ast::RelOp::Cmp(op)) => {
-            let r = eval_expr(glob_env, fuel, env, out, &r)?;
+            let r = eval_expr(glob_env, fuel, env, out, r)?;
             fuel.burn()?;
-            Ok(Val::Bool(l.eval_cmp_op(op, &r)?))
+            Ok(Val::Bool(l.eval_cmp_op(&op, &r)?))
         }
         ast::BinOp::Add(op) => {
-            let r = eval_expr(glob_env, fuel, env, out, &r)?;
+            let r = eval_expr(glob_env, fuel, env, out, r)?;
             fuel.burn()?;
-            Ok(l.eval_add_op(op, &r)?)
+            Ok(l.eval_add_op(&op, &r)?)
         }
         ast::BinOp::Mul(op) => {
-            let r = eval_expr(glob_env, fuel, env, out, &r)?;
+            let r = eval_expr(glob_env, fuel, env, out, r)?;
             fuel.burn()?;
-            Ok(Val::Num(l.eval_mul_op(op, &r)?))
+            Ok(Val::Num(l.eval_mul_op(&op, &r)?))
         }
         ast::BinOp::Log(op) => match (op, l.truthy()) {
             // https://craftinginterpreters.com/control-flow.html#logical-operators
@@ -65,9 +64,9 @@ fn eval_bin_expr(
                 Ok(l)
             }
             _ => {
-                let ret = eval_expr(glob_env, fuel, env, out, &r)?;
+                let r = eval_expr(glob_env, fuel, env, out, r)?;
                 fuel.burn()?;
-                Ok(ret)
+                Ok(r)
             }
         },
     }
@@ -78,12 +77,12 @@ fn eval_assign(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    assign: &ast::Assign,
+    assign: &ast::Node<ast::Assign>,
 ) -> Result<Val, RuntimeError> {
-    let ast::Assign { name, val } = assign;
-    let val = eval_expr(glob_env, fuel, env, out, val)?;
+    let ast::Assign { name, val } = &assign.kind;
+    let val = eval_expr(glob_env, fuel, env, out, &val)?;
     fuel.burn()?;
-    env.borrow_mut().assign(name, val.clone())?;
+    env.borrow_mut().assign(&name.kind, val.clone())?;
     Ok(val)
 }
 
@@ -92,9 +91,9 @@ fn eval_call(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    call: &ast::Call,
+    call: &ast::Node<ast::Call>,
 ) -> Result<Val, RuntimeError> {
-    let ast::Call { callee, args } = call;
+    let ast::Call { callee, args } = &call.kind;
     match eval_expr(glob_env, fuel, env, out, callee)? {
         x @ (Val::Nil | Val::Bool(_) | Val::Num(_) | Val::Str(_)) => Err(TypeError {
             msg: format!("is not a function `{x:?}`"),
@@ -156,14 +155,21 @@ fn eval_fun(
     fuel: &mut Fuel,
     env: &EnvRef,
     _out: &mut dyn io::Write,
-    fun: &ast::Fun,
-    name: Option<VarName>,
+    fun: &ast::Node<ast::Fun>,
+    name: Option<ast::Node<ast::VarName>>,
 ) -> Result<Val, RuntimeError> {
-    let ast::Fun { params, body } = fun;
+    let ast::Fun { params, body } = &fun.kind;
+    let name = name.map(|x| x.kind).map(ast::VarName::into_inner);
+    let params: Vec<VarName> = params
+        .iter()
+        .cloned()
+        .map(|x| x.kind)
+        .map(Into::into)
+        .collect();
     fuel.burn()?;
     Ok(Val::Fn(Rc::new(Fn::User(UserFn {
-        name: name.map(VarName::into_inner),
-        params: params.iter().cloned().map(Into::into).collect(),
+        name,
+        params,
         body: body.clone(),
         env: env.clone(),
     }))))
@@ -174,24 +180,22 @@ fn eval_expr(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    expr: &ast::Expr,
+    expr: &ast::Node<ast::Expr>,
 ) -> Result<Val, RuntimeError> {
-    match expr {
-        ast::Expr::Lit(lit) => {
+    match &expr.kind {
+        ast::Expr::Lit(x) => {
             fuel.burn()?;
-            Ok(lit.clone().into())
+            Ok(x.kind.clone().into())
         }
-        ast::Expr::Un(ast::UnExpr { op, e }) => eval_un_expr(glob_env, fuel, env, out, op, e),
-        ast::Expr::Bin(ast::BinExpr { op, l, r }) => {
-            eval_bin_expr(glob_env, fuel, env, out, op, l, r)
-        }
+        ast::Expr::Un(x) => eval_un_expr(glob_env, fuel, env, out, &x),
+        ast::Expr::Bin(x) => eval_bin_expr(glob_env, fuel, env, out, &x),
         ast::Expr::Var(x) => {
             fuel.burn()?;
-            Ok(env.borrow().get(&**x)?)
+            Ok(env.borrow().get(&**x.kind)?)
         }
-        ast::Expr::Assign(x) => eval_assign(glob_env, fuel, env, out, x),
-        ast::Expr::Call(x) => eval_call(glob_env, fuel, env, out, x),
-        ast::Expr::Fun(x) => eval_fun(glob_env, fuel, env, out, x, None),
+        ast::Expr::Assign(x) => eval_assign(glob_env, fuel, env, out, &x),
+        ast::Expr::Call(x) => eval_call(glob_env, fuel, env, out, &x),
+        ast::Expr::Fun(x) => eval_fun(glob_env, fuel, env, out, &x, None),
     }
 }
 
@@ -200,18 +204,18 @@ fn eval_var_decl(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    var_decl: &ast::VarDecl,
+    var_decl: &ast::Node<ast::VarDecl>,
 ) -> Result<ControlFlow, RuntimeError> {
-    let ast::VarDecl { name, init } = var_decl;
+    let ast::VarDecl { name, init } = &var_decl.kind;
     match init {
         None => {
             fuel.burn()?;
             // Challenge 2 from https://craftinginterpreters.com/statements-and-state.html#challenges
-            env.borrow_mut().declare(name.clone().into())?
+            env.borrow_mut().declare(name.kind.clone().into())?
         }
         Some(init) => {
             let init = eval_expr(glob_env, fuel, env, out, init)?;
-            env.borrow_mut().define(name.clone().into(), init)?
+            env.borrow_mut().define(name.kind.clone().into(), init)?
         }
     }
     Ok(ControlFlow::Cont)
@@ -222,10 +226,10 @@ fn eval_block(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    block: &ast::Block,
+    block: &ast::Node<ast::Block>,
     extra_vars: impl Iterator<Item = (VarName, Val)>,
 ) -> Result<ControlFlow, RuntimeError> {
-    let ast::Block(stmts) = block;
+    let ast::Block(stmts) = &block.kind;
     let env = Env::extend(env);
     for (var_name, val) in extra_vars {
         env.borrow_mut().define(var_name, val)?
@@ -244,9 +248,9 @@ fn eval_if(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    if_: &ast::IfStmt,
+    if_: &ast::Node<ast::IfStmt>,
 ) -> Result<ControlFlow, RuntimeError> {
-    let ast::IfStmt { cond, then, else_ } = if_;
+    let ast::IfStmt { cond, then, else_ } = &if_.kind;
     if eval_expr(glob_env, fuel, env, out, cond)?.truthy() {
         eval_stmt(glob_env, fuel, env, out, then)
     } else if let Some(else_) = else_ {
@@ -261,9 +265,9 @@ fn eval_while(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    while_: &ast::WhileStmt,
+    while_: &ast::Node<ast::WhileStmt>,
 ) -> Result<ControlFlow, RuntimeError> {
-    let ast::WhileStmt { cond, body } = while_;
+    let ast::WhileStmt { cond, body } = &while_.kind;
     while eval_expr(glob_env, fuel, env, out, cond)?.truthy() {
         match eval_stmt(glob_env, fuel, env, out, body)? {
             x @ ControlFlow::Ret(_) => return Ok(x),
@@ -279,12 +283,11 @@ fn eval_fun_decl(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    fun_decl: &ast::FunDecl,
+    fun_decl: &ast::Node<ast::FunDecl>,
 ) -> Result<ControlFlow, RuntimeError> {
-    let ast::FunDecl { name, fun } = fun_decl;
-    let name: VarName = name.clone().into();
+    let ast::FunDecl { name, fun } = &fun_decl.kind;
     let val = eval_fun(glob_env, fuel, env, out, fun, Some(name.clone()))?;
-    env.borrow_mut().define(name, val);
+    env.borrow_mut().define(name.kind.clone().into(), val);
     Ok(ControlFlow::Cont)
 }
 
@@ -293,9 +296,9 @@ fn eval_return(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    return_: &ast::RetStmt,
+    return_: &ast::Node<ast::RetStmt>,
 ) -> Result<ControlFlow, RuntimeError> {
-    let ast::RetStmt(val) = return_;
+    let ast::RetStmt(val) = &return_.kind;
     let val = match val {
         None => Val::Nil,
         Some(expr) => eval_expr(glob_env, fuel, env, out, expr)?,
@@ -309,29 +312,31 @@ fn eval_stmt(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    stmt: &ast::Stmt,
+    stmt: &ast::Node<ast::Stmt>,
 ) -> Result<ControlFlow, RuntimeError> {
-    match stmt {
-        ast::Stmt::Expr(ast::ExprStmt(x)) => {
+    match &stmt.kind {
+        ast::Stmt::Expr(x) => {
+            let ast::ExprStmt(expr) = &x.kind;
             // https://craftinginterpreters.com/statements-and-state.html#executing-statements
             // > We evaluate the inner expression using our existing evaluate() method and
             // > discard the value.
-            let _ = eval_expr(glob_env, fuel, env, out, x)?;
+            let _ = eval_expr(glob_env, fuel, env, out, expr)?;
             Ok(ControlFlow::Cont)
         }
-        ast::Stmt::Print(ast::PrintStmt(x)) => {
-            let x = eval_expr(glob_env, fuel, env, out, x)?;
+        ast::Stmt::Print(x) => {
+            let ast::PrintStmt(expr) = &x.kind;
+            let val = eval_expr(glob_env, fuel, env, out, expr)?;
             fuel.burn()?;
-            writeln!(out, "{}", x.display())?;
+            writeln!(out, "{}", val.display())?;
             Ok(ControlFlow::Cont)
         }
-        ast::Stmt::VarDecl(x) => eval_var_decl(glob_env, fuel, env, out, x),
-        ast::Stmt::Block(x) => eval_block(glob_env, fuel, env, out, x, iter::empty()),
-        ast::Stmt::If(x) => eval_if(glob_env, fuel, env, out, x),
-        ast::Stmt::While(x) => eval_while(glob_env, fuel, env, out, x),
-        ast::Stmt::Break => Ok(ControlFlow::Break),
-        ast::Stmt::FunDecl(x) => eval_fun_decl(glob_env, fuel, env, out, x),
-        ast::Stmt::Ret(x) => eval_return(glob_env, fuel, env, out, x),
+        ast::Stmt::VarDecl(x) => eval_var_decl(glob_env, fuel, env, out, &x),
+        ast::Stmt::Block(x) => eval_block(glob_env, fuel, env, out, &x, iter::empty()),
+        ast::Stmt::If(x) => eval_if(glob_env, fuel, env, out, &x),
+        ast::Stmt::While(x) => eval_while(glob_env, fuel, env, out, &x),
+        ast::Stmt::Break(_) => Ok(ControlFlow::Break),
+        ast::Stmt::FunDecl(x) => eval_fun_decl(glob_env, fuel, env, out, &x),
+        ast::Stmt::Ret(x) => eval_return(glob_env, fuel, env, out, &x),
     }
 }
 
@@ -340,9 +345,9 @@ fn eval_prog(
     fuel: &mut Fuel,
     env: &EnvRef,
     out: &mut dyn io::Write,
-    prog: &ast::Prog,
+    prog: &ast::Node<ast::Prog>,
 ) -> Result<(), RuntimeError> {
-    let ast::Prog(stmts) = prog;
+    let ast::Prog(stmts) = &prog.kind;
     for stmt in stmts {
         match eval_stmt(glob_env, fuel, env, out, stmt)? {
             ControlFlow::Cont => (),
@@ -409,7 +414,7 @@ impl Interpreter {
     }
 
     #[cfg(test)]
-    pub(super) fn eval_expr(&mut self, expr: &ast::Expr) -> Result<Val, RuntimeError> {
+    pub(super) fn eval_expr(&mut self, expr: &ast::Node<ast::Expr>) -> Result<Val, RuntimeError> {
         let mut env = Env::extend(&self.glob_env);
         eval_expr(
             &mut self.glob_env,
@@ -420,7 +425,7 @@ impl Interpreter {
         )
     }
 
-    pub fn eval_prog(&mut self, prog: &ast::Prog) -> Result<(), RuntimeError> {
+    pub fn eval_prog(&mut self, prog: &ast::Node<ast::Prog>) -> Result<(), RuntimeError> {
         let mut env = Env::extend(&self.glob_env);
         eval_prog(
             &mut self.glob_env,

@@ -15,6 +15,12 @@ pub trait Pretty {
     }
 }
 
+impl<T: Pretty> Pretty for super::Node<T> {
+    fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.kind.pretty(f)
+    }
+}
+
 impl Pretty for super::NilLit {
     fn pretty(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "nil")
@@ -251,7 +257,7 @@ impl Pretty for super::Stmt {
             Self::Block(x) => x.pretty(f),
             Self::If(x) => x.pretty(f),
             Self::While(x) => x.pretty(f),
-            Self::Break => writeln!(f, "break;"),
+            Self::Break(_) => writeln!(f, "break;"),
             Self::FunDecl(x) => x.pretty(f),
             Self::Ret(x) => x.pretty(f),
         }

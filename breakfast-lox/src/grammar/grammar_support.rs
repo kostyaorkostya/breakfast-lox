@@ -4,26 +4,30 @@ use super::parse_error::{
     TooManyArguments,
 };
 use crate::ast;
+use std::ops::Range;
 use std::str::FromStr;
 
 // https://craftinginterpreters.com/functions.html#maximum-argument-counts
 const MAX_ARG_COUNT: usize = 255;
 
 pub enum ForInit {
-    VarDecl(ast::VarDecl),
-    Expr(ast::ExprStmt),
+    VarDecl(ast::Node<ast::VarDecl>),
+    Expr(ast::Node<ast::ExprStmt>),
 }
 
+// https://craftinginterpreters.com/control-flow.html#for-loops
 pub fn desugar_for_stmt(
-    init: Option<ForInit>,
-    cond: Option<ast::Expr>,
-    incr: Option<ast::Expr>,
-    body: ast::Stmt,
+    ids: &mut dyn ast::NodeIdGen,
+    loc: Range<usize>,
+    init: Option<ast::Node<ForInit>>,
+    cond: Option<ast::Node<ast::Expr>>,
+    incr: Option<ast::Node<ast::Expr>>,
+    body: ast::Node<ast::Stmt>,
 ) -> ast::Stmt {
     let body = if let Some(incr) = incr {
-        ast::Stmt::Block(Box::new(ast::Block(vec![
-            ast::Stmt::Block(Box::new(ast::Block(vec![body]))),
-            ast::Stmt::Expr(ast::ExprStmt(incr)),
+        ast::Stmt::Block(ids.new_synth_node(ast::Block(vec![
+            ast::Stmt::Block(ids.new_synth_node(ast::Block(vec![body]))),
+            ast::Stmt::Expr(ids.new_synth_node(ast::ExprStmt(incr))),
         ])))
     } else {
         body
@@ -31,19 +35,19 @@ pub fn desugar_for_stmt(
     let cond = if let Some(cond) = cond {
         cond
     } else {
-        ast::Expr::Lit(ast::Lit::Bool(ast::BoolLit(true)))
+        ast::Expr::Lit(ids.new_synth_node(ast::Lit::Bool(ast::BoolLit(true))))
     };
     match init {
-        None => ast::Stmt::While(Box::new(ast::WhileStmt { cond, body })),
+        None => ast::Stmt::While(ids.new_synth_with_loc_node(loc, ast::WhileStmt { cond, body })),
         Some(init) => {
             let init = match init {
                 ForInit::VarDecl(x) => ast::Stmt::VarDecl(x),
                 ForInit::Expr(x) => ast::Stmt::Expr(x),
             };
-            ast::Stmt::Block(Box::new(ast::Block(vec![
-                init,
-                ast::Stmt::While(Box::new(ast::WhileStmt { cond, body })),
-            ])))
+            ast::Stmt::Block(ids.new_synth_with_loc_node(
+                loc,
+                ast::Block(vec![init, ast::Stmt::While(ast::WhileStmt { cond, body })]),
+            ))
         }
     }
 }
