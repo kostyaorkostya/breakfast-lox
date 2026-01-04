@@ -724,6 +724,33 @@ mod prog {
         .assert_debug_eq(&actual);
         Ok(())
     }
+
+    #[test]
+    fn test_environment_leak() -> anyhow::Result<()> {
+        // example from https://craftinginterpreters.com/resolving-and-binding.html#static-scope
+        let actual = parse_and_eval_prog(
+            r#"
+            var a = "global";
+            {
+              fun showA() {
+                print a;
+              }
+
+              showA();
+              var a = "block";
+              showA();
+            }
+        "#,
+            None,
+            None,
+        )?;
+        expect![[r#"
+            global
+            block
+        "#]]
+        .assert_eq(&actual);
+        Ok(())
+    }
 }
 
 mod stringify {
