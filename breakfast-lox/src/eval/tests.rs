@@ -685,11 +685,20 @@ mod prog {
             fun scope(a) {
               var a = "local";
             }
+
+            scope("foo");
         "#,
             None,
             None,
-        )?;
-        expect![""].assert_eq(&actual);
+        )
+        .unwrap_err();
+        expect![[r#"
+            VariableRedeclaration(
+                VariableRedeclarationError {
+                    var_name: "a",
+                },
+            )
+        "#]].assert_debug_eq(&actual);
         Ok(())
     }
 }

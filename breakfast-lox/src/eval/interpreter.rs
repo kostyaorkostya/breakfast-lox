@@ -6,7 +6,7 @@ use super::{Env, EnvRef, Fn, Fuel, Val, native_fns};
 use crate::ast;
 use std::cell::RefCell;
 use std::io;
-use std::iter::zip;
+use std::iter;
 use std::rc::Rc;
 
 fn eval_un_expr(
@@ -128,11 +128,14 @@ fn eval_call(
                     body,
                     env,
                 }) => {
-                    let env = Env::extend(env);
-                    for (name, arg) in zip(params, args) {
-                        env.borrow_mut().define(name.clone(), arg)?;
-                    }
-                    match eval_block(glob_env, fuel, &env, out, body)? {
+                    match eval_block(
+                        glob_env,
+                        fuel,
+                        &env,
+                        out,
+                        body,
+                        iter::zip(params.iter().cloned(), args.into_iter()),
+                    )? {
                         ControlFlow::Ret(val) => Ok(val),
                         ControlFlow::Cont => {
                             // https://craftinginterpreters.com/functions.html#return-statements
@@ -158,16 +161,11 @@ fn eval_fun(
 ) -> Result<Val, RuntimeError> {
     let ast::Fun { params, body } = fun;
     fuel.burn()?;
-    let env = env.clone();
-    let params: Vec<VarName> = params.iter().cloned().map(Into::into).collect();
-    for param in params.iter().cloned() {
-        env.borrow_mut().declare(param);
-    }
     Ok(Val::Fn(Rc::new(Fn::User(UserFn {
         name: name.map(VarName::into_inner),
-        params,
+        params: params.iter().cloned().map(Into::into).collect(),
         body: body.clone(),
-        env,
+        env: env.clone(),
     }))))
 }
 
@@ -225,9 +223,13 @@ fn eval_block(
     env: &EnvRef,
     out: &mut dyn io::Write,
     block: &ast::Block,
+    extra_vars: impl Iterator<Item = (VarName, Val)>,
 ) -> Result<ControlFlow, RuntimeError> {
     let ast::Block(stmts) = block;
     let env = Env::extend(env);
+    for (var_name, val) in extra_vars {
+        env.borrow_mut().define(var_name, val)?
+    }
     for stmt in stmts {
         match eval_stmt(glob_env, fuel, &env, out, stmt)? {
             x @ (ControlFlow::Break | ControlFlow::Ret(_)) => return Ok(x),
@@ -324,7 +326,7 @@ fn eval_stmt(
             Ok(ControlFlow::Cont)
         }
         ast::Stmt::VarDecl(x) => eval_var_decl(glob_env, fuel, env, out, x),
-        ast::Stmt::Block(x) => eval_block(glob_env, fuel, env, out, x),
+        ast::Stmt::Block(x) => eval_block(glob_env, fuel, env, out, x, iter::empty()),
         ast::Stmt::If(x) => eval_if(glob_env, fuel, env, out, x),
         ast::Stmt::While(x) => eval_while(glob_env, fuel, env, out, x),
         ast::Stmt::Break => Ok(ControlFlow::Break),
