@@ -17,8 +17,11 @@ mod grammar_support;
 lalrpop_mod!(grammar, "/grammar/grammar.rs");
 
 #[cfg(test)]
-pub(crate) fn parse_expr(expr: &str) -> Result<ast::Expr, CompileError> {
-    let expr = match grammar::ExprParser::new().parse(expr) {
+pub(crate) fn parse_expr(
+    ids: &mut dyn ast::NodeIdGen,
+    expr: &str,
+) -> Result<ast::Node<ast::Expr>, CompileError> {
+    let expr = match grammar::ExprParser::new().parse(ids, expr) {
         Ok(x) => Ok(x),
         Err(lalrpop_util::ParseError::User { error }) => Err(CompileError::Parse(error)),
         Err(x) => Err(CompileError::Lalrpop(anyhow::anyhow!("{x:?}"))),
@@ -26,8 +29,11 @@ pub(crate) fn parse_expr(expr: &str) -> Result<ast::Expr, CompileError> {
     Ok(expr)
 }
 
-pub fn parse_prog(prog: &str) -> Result<ast::Prog, CompileError> {
-    let prog = match grammar::ProgParser::new().parse(prog) {
+pub fn parse_prog(
+    ids: &mut dyn ast::NodeIdGen,
+    prog: &str,
+) -> Result<ast::Node<ast::Prog>, CompileError> {
+    let prog = match grammar::ProgParser::new().parse(ids, prog) {
         Ok(x) => Ok(x),
         Err(lalrpop_util::ParseError::User { error }) => Err(CompileError::Parse(error)),
         Err(x) => Err(CompileError::Lalrpop(anyhow::anyhow!("{x:?}"))),

@@ -1,33 +1,29 @@
 mod pretty {
-    use super::super::{
-        AddOp, BinExpr, BinOp, Expr, Lit, NodeIdGen, NumLit, Pretty, PrintStmt, Prog, SeqNodeIdGen,
-        Stmt, StrLit, VarDecl, VarName,
-    };
+    use crate::ast;
+    use crate::ast::Pretty;
+    use crate::grammar;
     use expect_test::expect;
+
+    fn parse_expr(expr: &str) -> anyhow::Result<ast::Node<ast::Expr>> {
+        let mut ids = ast::SeqNodeIdGen::new();
+        Ok(grammar::parse_expr(&mut ids, expr)?)
+    }
+
+    fn parse_prog(prog: &str) -> anyhow::Result<ast::Node<ast::Prog>> {
+        let mut ids = ast::SeqNodeIdGen::new();
+        Ok(grammar::parse_prog(&mut ids, prog)?)
+    }
 
     #[test]
     fn test_expression() -> anyhow::Result<()> {
-        let mut ids = SeqNodeIdGen::new();
-        let actual = Expr::Bin(ids.new_synth_node(BinExpr {
-            op: ids.new_synth_node(BinOp::Add(AddOp::Add)),
-            l: Box::new(ids.new_synth_node(Expr::Lit(
-                ids.new_synth_node(Lit::Str(StrLit("hello".into()))),
-            ))),
-            r: Box::new(ids.new_synth_node(Expr::Lit(ids.new_synth_node(Lit::Num(NumLit(3f64)))))),
-        }))
-        .display()
-        .to_string();
+        let actual = parse_expr(r#"("hello" + 3)"#)?.display().to_string();
         expect![[r#"("hello" + 3)"#]].assert_eq(&actual);
         Ok(())
     }
 
     #[test]
     fn test_program() -> anyhow::Result<()> {
-        let actual = Prog(vec![Stmt::Print(PrintStmt(Expr::Lit(Lit::Str(StrLit(
-            "hello".into(),
-        )))))])
-        .display()
-        .to_string();
+        let actual = parse_expr(r#"print "hello";)"#)?.display().to_string();
         expect![[r#"
             print "hello";
         "#]]
@@ -37,13 +33,12 @@ mod pretty {
 
     #[test]
     fn test_var_decl() -> anyhow::Result<()> {
-        let actual = Prog(vec![
-            Stmt::VarDecl(VarDecl {
-                name: VarName::new("foo"),
-                init: Some(Expr::Lit(Lit::Str(StrLit("bar".into())))),
-            }),
-            Stmt::Print(PrintStmt(Expr::Var(VarName::new("foo")))),
-        ])
+        let actual = parse_expr(
+            r#"
+            var foo = "bar";
+            print foo;
+        "#,
+        )?
         .display()
         .to_string();
         expect![[r#"

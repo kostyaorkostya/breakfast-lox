@@ -1,4 +1,5 @@
 use super::{Interpreter, OutOfFuelError, RuntimeError, Val};
+use crate::ast;
 use crate::grammar::{parse_expr, parse_prog};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,7 +18,8 @@ fn parse_and_eval_expr(
     fuel: Option<u64>,
     clock: Option<Rc<RefCell<f64>>>,
 ) -> anyhow::Result<Val> {
-    let expr = parse_expr(expr)?;
+    let mut ids = ast::SeqNodeIdGen::new();
+    let expr = parse_expr(&mut ids, expr)?;
     Ok(Interpreter::new_for_test(None, resolve_fuel(fuel), clock)?.eval_expr(&expr)?)
 }
 
@@ -26,7 +28,8 @@ fn parse_and_eval_prog(
     fuel: Option<u64>,
     clock: Option<Rc<RefCell<f64>>>,
 ) -> anyhow::Result<String> {
-    let prog = parse_prog(prog)?;
+    let mut ids = ast::SeqNodeIdGen::new();
+    let prog = parse_prog(&mut ids, prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
     Interpreter::new_for_test(Some(Rc::clone(&buf)), resolve_fuel(fuel), clock)?
         .eval_prog(&prog)?;
@@ -38,7 +41,8 @@ fn parse_and_eval_divergent_prog(
     fuel: u64,
     clock: Option<Rc<RefCell<f64>>>,
 ) -> anyhow::Result<String> {
-    let prog = parse_prog(prog)?;
+    let mut ids = ast::SeqNodeIdGen::new();
+    let prog = parse_prog(&mut ids, prog)?;
     let buf = Rc::new(RefCell::new(Vec::new()));
     match Interpreter::new_for_test(Some(Rc::clone(&buf)), fuel, clock)?.eval_prog(&prog) {
         Err(RuntimeError::Fuel(OutOfFuelError)) => Ok(()),
