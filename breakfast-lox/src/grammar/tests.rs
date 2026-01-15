@@ -1,5 +1,18 @@
+use crate::ast;
+use crate::grammar;
+
+fn parse_expr(expr: &str) -> anyhow::Result<ast::Node<ast::Expr>> {
+    let mut ids = ast::SeqNodeIdGen::new();
+    Ok(grammar::parse_expr(&mut ids, expr)?)
+}
+
+fn parse_prog(prog: &str) -> anyhow::Result<ast::Node<ast::Prog>> {
+    let mut ids = ast::SeqNodeIdGen::new();
+    Ok(grammar::parse_prog(&mut ids, prog)?)
+}
+
 mod bool_literals {
-    use super::super::parse_expr;
+    use super::parse_expr;
     use expect_test::expect;
 
     #[test]
@@ -36,7 +49,7 @@ mod bool_literals {
 }
 
 mod nil_literal {
-    use super::super::parse_expr;
+    use super::parse_expr;
     use expect_test::expect;
     #[test]
     fn test_nil() -> anyhow::Result<()> {
