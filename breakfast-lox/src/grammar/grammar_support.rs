@@ -11,8 +11,8 @@ use std::str::FromStr;
 const MAX_ARG_COUNT: usize = 255;
 
 pub enum ForInit {
-    VarDecl(ast::Node<ast::VarDecl>),
-    Expr(ast::Node<ast::ExprStmt>),
+    VarDecl(ast::VarDecl),
+    Expr(ast::ExprStmt),
 }
 
 // https://craftinginterpreters.com/control-flow.html#for-loops
@@ -23,31 +23,41 @@ pub fn desugar_for_stmt(
     cond: Option<ast::Node<ast::Expr>>,
     incr: Option<ast::Node<ast::Expr>>,
     body: ast::Node<ast::Stmt>,
-) -> ast::Stmt {
+) -> ast::Node<ast::Stmt> {
     let body = if let Some(incr) = incr {
-        ast::Stmt::Block(ids.new_synth_node(ast::Block(vec![
-            ast::Stmt::Block(ids.new_synth_node(ast::Block(vec![body]))),
-            ast::Stmt::Expr(ids.new_synth_node(ast::ExprStmt(incr))),
-        ])))
+        let body = ast::synth_node(ids, ast::Stmt::Block(ast::Block(vec![body])));
+        let incr = ast::synth_node(ids, ast::Stmt::Expr(ast::ExprStmt(incr)));
+        ast::synth_node(ids, ast::Stmt::Block(ast::Block(vec![body, incr])))
     } else {
         body
     };
     let cond = if let Some(cond) = cond {
         cond
     } else {
-        ast::Expr::Lit(ids.new_synth_node(ast::Lit::Bool(ast::BoolLit(true))))
+        ast::synth_node(ids, ast::Expr::Lit(ast::Lit::Bool(ast::BoolLit(true))))
     };
     match init {
-        None => ast::Stmt::While(ids.new_synth_with_loc_node(loc, ast::WhileStmt { cond, body })),
+        None => ast::synth_with_loc_node(
+            ids,
+            loc,
+            ast::Stmt::While(ast::WhileStmt {
+                cond,
+                body: Box::new(body),
+            }),
+        ),
         Some(init) => {
-            let init = match init {
+            let init = init.map(|x| match x {
                 ForInit::VarDecl(x) => ast::Stmt::VarDecl(x),
                 ForInit::Expr(x) => ast::Stmt::Expr(x),
-            };
-            ast::Stmt::Block(ids.new_synth_with_loc_node(
-                loc,
-                ast::Block(vec![init, ast::Stmt::While(ast::WhileStmt { cond, body })]),
-            ))
+            });
+            let while_ = ast::synth_node(
+                ids,
+                ast::Stmt::While(ast::WhileStmt {
+                    cond,
+                    body: Box::new(body),
+                }),
+            );
+            ast::synth_with_loc_node(ids, loc, ast::Stmt::Block(ast::Block(vec![init, while_])))
         }
     }
 }

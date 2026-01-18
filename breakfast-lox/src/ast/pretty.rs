@@ -257,7 +257,7 @@ impl Pretty for super::Stmt {
             Self::Block(x) => x.pretty(f),
             Self::If(x) => x.pretty(f),
             Self::While(x) => x.pretty(f),
-            Self::Break(_) => writeln!(f, "break;"),
+            Self::Break => writeln!(f, "break;"),
             Self::FunDecl(x) => x.pretty(f),
             Self::Ret(x) => x.pretty(f),
         }

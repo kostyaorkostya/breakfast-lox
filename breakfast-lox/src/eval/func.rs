@@ -36,7 +36,7 @@ impl NativeFn {
 pub struct UserFn {
     pub name: Option<String>,
     pub params: Vec<VarName>,
-    pub body: ast::Node<ast::Block>,
+    pub body: ast::Block,
     pub env: EnvRef,
 }
 

@@ -7,7 +7,7 @@ use pretty::Pretty;
 mod node_id;
 pub use node_id::{NodeId, NodeIdGen, SeqNodeIdGen};
 mod node;
-pub use node::Node;
+pub use node::{Node, node, synth_node, synth_with_loc_node};
 
 #[derive(Debug, Clone, Copy)]
 pub struct NilLit;
@@ -125,13 +125,13 @@ pub struct Call {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Lit(Node<Lit>),
-    Un(Node<UnExpr>),
-    Bin(Node<BinExpr>),
-    Var(Node<VarName>),
-    Assign(Node<Assign>),
-    Call(Node<Call>),
-    Fun(Node<Fun>),
+    Lit(Lit),
+    Un(UnExpr),
+    Bin(BinExpr),
+    Var(VarName),
+    Assign(Assign),
+    Call(Call),
+    Fun(Fun),
 }
 
 #[derive(Debug, Clone)]
@@ -160,15 +160,15 @@ pub struct ExprStmt(pub Node<Expr>);
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Expr(Node<ExprStmt>),
-    Print(Node<PrintStmt>),
-    VarDecl(Node<VarDecl>),
-    Block(Node<Block>),
-    If(Node<IfStmt>),
-    While(Node<WhileStmt>),
-    Break(Node<()>),
-    FunDecl(Node<FunDecl>),
-    Ret(Node<RetStmt>),
+    Expr(ExprStmt),
+    Print(PrintStmt),
+    VarDecl(VarDecl),
+    Block(Block),
+    If(IfStmt),
+    While(WhileStmt),
+    Break,
+    FunDecl(FunDecl),
+    Ret(RetStmt),
 }
 
 #[derive(Debug, Clone)]
