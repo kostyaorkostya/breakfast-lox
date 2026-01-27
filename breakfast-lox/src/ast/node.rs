@@ -1,6 +1,5 @@
 use super::{NodeId, NodeIdGen};
-use std::ops::Fn;
-use std::ops::Range;
+use std::ops::{Fn, Range};
 
 #[derive(Debug, Clone)]
 pub struct Node<T> {
