@@ -23,7 +23,13 @@ mod pretty {
 
     #[test]
     fn test_program() -> anyhow::Result<()> {
-        let actual = parse_expr(r#"print "hello";)"#)?.display().to_string();
+        let actual = parse_prog(
+            r#"
+        print "hello";
+        "#,
+        )?
+        .display()
+        .to_string();
         expect![[r#"
             print "hello";
         "#]]
@@ -33,7 +39,7 @@ mod pretty {
 
     #[test]
     fn test_var_decl() -> anyhow::Result<()> {
-        let actual = parse_expr(
+        let actual = parse_prog(
             r#"
             var foo = "bar";
             print foo;
