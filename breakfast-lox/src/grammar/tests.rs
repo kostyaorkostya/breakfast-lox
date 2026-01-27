@@ -1,12 +1,12 @@
 use crate::ast;
 use crate::grammar;
 
-fn parse_expr(expr: &str) -> anyhow::Result<ast::Node<ast::Expr>> {
+fn parse_expr(expr: &str) -> Result<ast::Node<ast::Expr>, grammar::CompileError> {
     let mut ids = ast::SeqNodeIdGen::new();
     Ok(grammar::parse_expr(&mut ids, expr)?)
 }
 
-fn parse_prog(prog: &str) -> anyhow::Result<ast::Node<ast::Prog>> {
+fn parse_prog(prog: &str) -> Result<ast::Node<ast::Prog>, grammar::CompileError> {
     let mut ids = ast::SeqNodeIdGen::new();
     Ok(grammar::parse_prog(&mut ids, prog)?)
 }
@@ -68,8 +68,8 @@ mod nil_literal {
 
 mod num_literal {
     use super::super::parse_error::NumLitParseError;
-    use super::super::parse_expr;
     use super::super::{CompileError, ParseError};
+    use super::parse_expr;
     use expect_test::expect;
 
     #[test]
@@ -134,7 +134,7 @@ mod num_literal {
 }
 
 mod prog {
-    use super::super::parse_prog;
+    use super::parse_prog;
     use expect_test::expect;
 
     #[test]
@@ -435,7 +435,8 @@ mod prog {
 }
 
 mod syntax {
-    use super::super::{CompileError, SyntaxError, parse_prog};
+    use super::super::{CompileError, SyntaxError};
+    use super::parse_prog;
     use expect_test::expect;
 
     #[test]
