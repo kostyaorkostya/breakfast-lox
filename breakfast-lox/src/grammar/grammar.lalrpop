@@ -258,7 +258,7 @@ UnExpr : ast::Node<ast::Expr> = {
     <start: @L> <op:UnOp> <e:UnExpr> <end: @R> => {
         let e = Box::new(e);
         ast::node(ids, start..end, ast::Expr::Un(ast::UnExpr { op, e }))
-    }
+    },
     CallExpr => <>
 }
 
@@ -288,13 +288,10 @@ Lambda : ast::Node<ast::Fun> = {
 }
 
 PrimExpr : ast::Node<ast::Expr> = {
-    <start: @L> <lit:Lit> <end: @R> =>
-        ast::node(ids, start..end, ast::Expr::Lit(lit)),
-    <start: @L> <var_name:VarName> <end: @R> =>
-        ast::node(ids, start..end, ast::Expr::Var(var_name)),
+    Lit => <>.map(ast::Expr::Lit),
+    VarName => <>.map(ast::Expr::Var),
     "(" <Expr> ")",
-    <start: @L> <lambda:Lambda> <end: @R> =>
-        ast::node(ids, start..end, ast::Expr::Fun(lambda)),
+    Lambda => <>.map(ast::Expr::Fun),
 }
 
 pub Prog : ast::Node<ast::Prog> = {
@@ -308,30 +305,25 @@ Stmt : ast::Node<ast::Stmt> = {
 }
 
 NonIfWhileForStmt : ast::Node<ast::Stmt> = {
-    <start: @L> <expr:ExprStmt> <end: @R> =>
-        ast::node(ids, start..end, ast::Stmt::Expr(expr)),
-    <start: @L> <print:PrintStmt> <end: @R> =>
-        ast::node(ids, start..end, ast::Stmt::Print(print)),
-    <start: @L> <block:Block> <end: @R> =>
-        ast::node(ids, start..end, ast::Stmt::Block(block)),
+    ExprStmt => <>.map(ast::Stmt::Expr),
+    PrintStmt => <>.map(ast::Stmt::Print),
+    Block => <>.map(ast::Stmt::Block),
     <start: @L> KWRD_BREAK ";" <end: @R> =>
         ast::node(ids, start..end, ast::Stmt::Break),
-    FunDecl => ast::Stmt::FunDecl(<>),
-    RetStmt => ast::Stmt::Ret(<>),
+    FunDecl => <>.map(ast::Stmt::FunDecl),
+    RetStmt => <>.map(ast::Stmt::Ret),
 }
 
 MatchedStmt : ast::Node<ast::Stmt> = { 
     NonIfWhileForStmt,
     <start: @L> KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:MatchedStmt> <end: @R> => {
         let if_ = ast::IfStmt { cond, then : Box::new(then), else_: Some(Box::new(else_)) };
-        let if_ = ast::node(ids, start..end, if_);
-        ast::Stmt::If(if_)
-    }
+        ast::node(ids, start..end, ast::Stmt::If(if_))
+    },
     <start: @L> KWRD_WHILE "(" <cond:Expr> ")" <body:MatchedStmt> <end: @R> => {
         let while_ = ast::WhileStmt { cond, body : Box::new(body) };
-        let while_ = ast::node(ids, start..end, while_);
-        ast::Stmt::While(while_)
-    }
+        ast::node(ids, start..end, ast::Stmt::While(while_))
+    },
     <start: @L> KWRD_FOR "(" <init:ForInit> <cond:Expr?> ";" <incr:Expr?> ")" <body:MatchedStmt> <end: @R> =>
         desugar_for_stmt(ids, start..end, init, cond, incr, body),
 }
@@ -339,19 +331,16 @@ MatchedStmt : ast::Node<ast::Stmt> = {
 UnmatchedStmt : ast::Node<ast::Stmt> = {
     <start: @L> KWRD_IF "(" <cond:Expr> ")" <then:Stmt> <end: @R> => {
         let if_ = ast::IfStmt { cond, then : Box::new(then), else_: None };
-        let if_ = ast::node(ids, start..end, if_);
-        ast::Stmt::If(if_)
-    }
+        ast::node(ids, start..end, ast::Stmt::If(if_))
+    },
     <start: @L> KWRD_IF "(" <cond:Expr> ")" <then:MatchedStmt> KWRD_ELSE <else_:UnmatchedStmt> <end: @R> => {
         let if_ = ast::IfStmt { cond, then : Box::new(then), else_: Some(Box::new(else_)) };
-        let if_ = ast::node(ids, start..end, if_);
-        ast::Stmt::If(if_)
-    }
+        ast::node(ids, start..end, ast::Stmt::If(if_))
+    },
     <start: @L> KWRD_WHILE "(" <cond:Expr> ")" <body:UnmatchedStmt> <end: @R> => {
         let while_ = ast::WhileStmt { cond, body : Box::new(body)};
-        let while_ = ast::node(ids, start..end, while_);
-        ast::Stmt::While(while_)
-    }
+        ast::node(ids, start..end, ast::Stmt::While(while_))
+    },
     <start: @L> KWRD_FOR "(" <init:ForInit> <cond:Expr?> ";" <incr:Expr?> ")" <body:UnmatchedStmt> <end: @R> => 
         desugar_for_stmt(ids, start..end, init, cond, incr, body),
 }
@@ -376,9 +365,9 @@ Params : Vec<ast::Node<ast::VarName>> = {
     }
 }
 
-ForInit : Option<ForInit> = {
-    VarDecl => Some(ForInit::VarDecl(<>)),
-    ExprStmt => Some(ForInit::Expr(<>)),
+ForInit : Option<ast::Node<ForInit>> = {
+    VarDecl => Some(<>.map(ForInit::VarDecl)),
+    ExprStmt => Some(<>.map(ForInit::Expr)),
     ";" => None
 }
 
@@ -389,19 +378,21 @@ VarDecl : ast::Node<ast::VarDecl> = {
 
 
 DeclStmt : ast::Node<ast::Stmt> = {
-    <start: @L> <var_decl:VarDecl> <end: @R> =>
-        ast::node(ids, start..end, ast::Stmt::VarDecl(var_decl)),
+    VarDecl => <>.map(ast::Stmt::VarDecl),
     Stmt,
 }
 
-Block : ast::Block = {
-    "{" <DeclStmt*> "}" => ast::Block(<>),
+Block : ast::Node<ast::Block> = {
+    <start: @L> "{" <stmts:DeclStmt*> "}" <end: @R> => 
+        ast::node(ids, start..end, ast::Block(stmts)),
 }
 
-ExprStmt : ast::ExprStmt = {
-    <Expr> ";" => ast::ExprStmt(<>),
+ExprStmt : ast::Node<ast::ExprStmt> = {
+    <start: @L> <expr:Expr> ";" <end: @R> =>
+        ast::node(ids, start..end, ast::ExprStmt(expr)),
 }
 
-PrintStmt : ast::PrintStmt = {
-    KWRD_PRINT <Expr> ";" => ast::PrintStmt(<>),
+PrintStmt : ast::Node<ast::PrintStmt> = {
+    <start: @L> KWRD_PRINT <expr:Expr> ";" <end: @R> =>
+        ast::node(ids, start..end, ast::PrintStmt(expr)),
 }
