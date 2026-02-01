@@ -287,7 +287,7 @@ fn eval_fun_decl(
 ) -> Result<ControlFlow, RuntimeError> {
     let ast::FunDecl { name, fun } = fun_decl;
     let val = eval_fun(glob_env, fuel, env, out, fun, Some(name.clone()))?;
-    env.borrow_mut().define(name.kind.clone().into(), val);
+    env.borrow_mut().define(name.kind.clone().into(), val)?;
     Ok(ControlFlow::Cont)
 }
 
